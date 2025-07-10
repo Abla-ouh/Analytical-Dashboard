@@ -316,16 +316,16 @@ if "Projects by Thematic Area" in selected_charts:
     )
 
     fig.update_traces(
-        texttemplate='%{text}%',
+        texttemplate='%%{text}%%',
         textposition='outside',
         marker_line_color='white',
         marker_line_width=1,
         hovertemplate="""
-            <b>%{y}</b><br>
-            Projects: %{x}<br>
-            Last Update: %{customdata[1]}<br>
-            Avg Team Size: %{customdata[2]}<br><br>
-            <b>Sample Projects:</b><br>%{customdata[0]}<extra></extra>
+            <b>%%{y}</b><br>
+            Projects: %%{x}<br>
+            Last Update: %%{customdata[1]}<br>
+            Avg Team Size: %%{customdata[2]}<br><br>
+            <b>Sample Projects:</b><br>%%{customdata[0]}<extra></extra>
         """
     )
 
@@ -416,7 +416,7 @@ if "Team Size Distribution" in selected_charts:
             name="Distribution",
             marker_color=COLORS['verdigris'],
             opacity=0.7,
-            hovertemplate="Team Size: %{x}<br>Count: %{y}<extra></extra>"
+            hovertemplate="Team Size: %%{x}<br>Count: %%{y}<extra></extra>"
         )
     )
 
@@ -521,31 +521,31 @@ if "Mentorship Distribution" in selected_charts:
         st.markdown('<div class="chart-subtitle">As of {}</div>'.format(pd.Timestamp.now().date()), unsafe_allow_html=True)
 
         # Create pie chart with proper customdata
-        fig = go.Figure(data=[go.Pie(
-            labels=mentor_data["Mentor"],
-            values=mentor_data["Count"],
-            hole=0.5,
-            textinfo="label+percent",
-            marker=dict(
-                colors=mentorship_colors,
-                line=dict(color="#ffffff", width=2)
-            ),
-            customdata=mentor_data[["Project name", "Project last update"]],
-            hovertemplate="""
-                <b>%{label}</b><br>
-                Projects: %{value}<br>
-                <b>Projects:</b>%{customdata[0]}
-                <extra></extra>
-            """
-        )])
+    fig = go.Figure(data=[go.Pie(
+        labels=mentor_data["Mentor"],
+        values=mentor_data["Count"],
+        hole=0.5,
+        textinfo="label+percent",
+        marker=dict(
+            colors=mentorship_colors,
+            line=dict(color="#ffffff", width=2)
+        ),
+        customdata=mentor_data[["Project name", "Project last update"]],
+        hovertemplate="""
+            <b>%%{label}</b><br>
+            Projects: %%{value}<br>
+            <b>Projects:</b>%%{customdata[0]}
+            <extra></extra>
+        """
+    )])
 
-        fig.update_layout(
-            margin=dict(t=10, b=10, l=10, r=10),
-            showlegend=True,
-            height=450  # Slightly taller to accommodate tooltips
+    fig.update_layout(
+        margin=dict(t=10, b=10, l=10, r=10),
+        showlegend=True,
+        height=450  # Slightly taller to accommodate tooltips
         )
 
-        st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True)
     st.markdown("---")
 if "Type de Situation" in selected_charts:
     # Clean column names to avoid hidden spaces or weird characters
@@ -572,7 +572,7 @@ if "Type de Situation" in selected_charts:
             name=row["Situation Type"],
             orientation='h',
             marker=dict(color=colors[i % len(colors)]),
-            hovertemplate=f"<b>{row['Situation Type']}</b><br>Share: {row['Percent']}%",
+            hovertemplate=f"<b>{row['Situation Type']}</b><br>Share: {row['Percent']}%%",
             width=0.3,
             text=f"{row['Percent']}%",
             textposition='inside',
