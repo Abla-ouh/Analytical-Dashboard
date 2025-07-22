@@ -4,46 +4,72 @@ from datetime import datetime
 import plotly.express as px
 import plotly.graph_objects as go
 from streamlit_plotly_events import plotly_events
-import io
+import pandas as pd
 
-# Color palette in rgba format
+
+# Improved and safe color palette
 COLORS = {
-    "mindaro": "rgba(217, 237, 146, 1)",
-    "light_green": "rgba(181, 228, 140, 1)",
-    "light_green_2": "rgba(153, 217, 140, 1)",
-    "emerald": "rgba(118, 200, 147, 1)",
-    "keppel": "rgba(82, 182, 154, 1)",
-    "verdigris": "rgba(52, 160, 164, 1)",
-    "bondi_blue": "rgba(22, 138, 173, 1)",
-    "cerulean": "rgba(26, 117, 159, 1)",
-    "lapis_lazuli": "rgba(30, 96, 145, 1)",
-    "indigo_dye": "rgba(24, 78, 119, 1)",
-    "gray": "#D1D5DB"  # Tailwind gray
+    "mindaro": "#D9ED92",
+    "light_green": "#B5E48C",
+    "light_green_2": "#99D98C",
+    "emerald": "#76C893",
+    "keppel": "#52B69A",
+    "verdigris": "#34A0A4",
+    "bondi_blue": "#168AAD",
+    "cerulean": "#1A759F",
+    "lapis_lazuli": "#1E6091",
+    "indigo_dye": "#184E77",
+    "gray": "#D1D5DB"
 }
-COLORS["light_green_2"] = COLORS["light_green2"] if "light_green2" in COLORS else "#99D98C"
-COLORS["lapis_lazuli"]  = COLORS.get("lapis", "#1E6091")
 
-
-
-# Page setup - enable sidebar
+# Streamlit page configuration
 st.set_page_config(
     page_title="🚀 Le Mouvement Dashboard",
     layout="wide",
-    initial_sidebar_state="expanded"  # Changed to expanded
+    initial_sidebar_state="expanded"
 )
 
-# ────────────────────── DATA LOADING (CACHED) ────────────────────── #
+# Data loading with robust error handling and validation
 @st.cache_data
 def load_data():
-    return pd.read_excel("data/Clean_Dashboard_Data.xlsx")
+    try:
+        data = pd.read_excel("data/Clean_Dashboard_Data.xlsx")
+        
+        # Verify required columns exist
+        required_columns = [
+            "Project name", "Team size", "Project last update",
+            "Current step name", "Thématique", "Type de situation"
+        ]
+        missing_cols = [col for col in required_columns if col not in data.columns]
+        if missing_cols:
+            st.error(f"Missing required columns: {', '.join(missing_cols)}")
+            st.stop()
+        
+        # Ensure 'Project last update' is datetime
+        data['Project last update'] = pd.to_datetime(data['Project last update'], errors='coerce')
+        
+        # Check for parsing errors
+        if data['Project last update'].isnull().any():
+            st.warning("Some 'Project last update' dates couldn't be parsed. These rows will be dropped.")
+            data = data.dropna(subset=['Project last update'])
+        
+        return data
+    
+    except FileNotFoundError:
+        st.error("Data file not found. Please ensure the file path is correct.")
+        st.stop()
+    except Exception as e:
+        st.error(f"An unexpected error occurred: {e}")
+        st.stop()
 
+# Load the dataset
 df = load_data()
 
-# ────────────────────── SIDEBAR ────────────────────── #
+# ────────────────────── ENHANCED SIDEBAR ────────────────────── #
 with st.sidebar:
-    st.title("Dashboard Navigation")
+    st.title("📌 Dashboard Navigation")
     
-    # Create a multiselect for charts to display
+    # Multiselect for charts to display
     selected_charts = st.multiselect(
         "Select charts to display:",
         options=[
@@ -57,26 +83,54 @@ with st.sidebar:
         default=[
             "Projects by Step",
             "Projects by Thematic Area",
-            "Top TOD Advisors",
-            "Team Size Distribution",
-            "Mentorship Distribution",
-            "Type de Situation"
+            "Top TOD Advisors"
         ]
     )
-    
-    # Optional filters could be added here
-    st.markdown("---")
-    st.markdown("**Filters**")
-    min_team_size = st.slider(
-        "Minimum Team Size",
-        min_value=1,
-        max_value=20,
-        value=1
-    )
-    
-    # Filter data based on sidebar selections
-    filtered_df = df[df["Team size"] >= min_team_size]
 
+    st.markdown("---")
+    st.subheader("Data Filters")
+
+    # Team Size filter
+    min_team_size, max_team_size = st.slider(
+        "Team Size Range:",
+        min_value=int(df["Team size"].min()),
+        max_value=int(df["Team size"].max()),
+        value=(int(df["Team size"].min()), int(df["Team size"].max()))
+    )
+
+    # Current Step filter
+    step_options = df["Current step name"].dropna().unique().tolist()
+    selected_steps = st.multiselect(
+        "Current Step:",
+        options=step_options,
+        default=step_options  # All selected by default
+    )
+
+    # Date Range filter for Project Last Update
+    min_date, max_date = st.date_input(
+        "Project Last Update Range:",
+        value=[
+            df["Project last update"].min().date(),
+            df["Project last update"].max().date()
+        ],
+        min_value=df["Project last update"].min().date(),
+        max_value=df["Project last update"].max().date()
+    )
+
+    # Filter data based on sidebar selections
+    filtered_df = df[
+        (df["Team size"] >= min_team_size) &
+        (df["Team size"] <= max_team_size) &
+        # (df["Thématique"].isin(selected_thematic)) &
+        (df["Current step name"].isin(selected_steps)) &
+        (df["Project last update"].dt.date.between(min_date, max_date))
+    ]
+
+    st.markdown(f"**Filtered Projects:** {filtered_df.shape[0]} out of {df.shape[0]}")
+
+    # Reset Filters Button (optional but useful UX feature)
+    if st.button("Reset Filters"):
+        st.rerun()
 # ────────────────────── STYLE ────────────────────── #
 st.markdown(f"""
     <style>
@@ -654,7 +708,7 @@ with tab1:
         st.markdown('<div class="chart-title"> Type de Situation Distribution (%)</div>', unsafe_allow_html=True)
         st.plotly_chart(fig, use_container_width=True)
 
-# ────────────────────── STAGES ANALYSIS TAB ──────────────────────
+    # ────────────────────── STAGES ANALYSIS TAB ──────────────────────
 with tab2:
 
     # palette for the three traces
@@ -831,3 +885,4 @@ with tab2:
 * **In Progress** – entry date present, submission date missing  
 * **Not started** – entry date missing
 """)
+
