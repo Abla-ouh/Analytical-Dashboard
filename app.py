@@ -5,6 +5,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from streamlit_plotly_events import plotly_events
 import pandas as pd
+import numpy as np
 
 
 # Improved and safe color palette
@@ -713,60 +714,67 @@ with tab2:
 
     # palette for the three traces
     status_colors = {
-        "Completed":  COLORS["emerald"],   # soft green
-        "Blocked":    COLORS["mindaro"],    # bright blue
-        "NotStarted": COLORS["gray"]   # deep blue‑purple
+        "Completed": COLORS["emerald"],
+        "Blocked": COLORS["mindaro"],
+        "NotStarted": COLORS["gray"]
     }
 
     st.markdown("### Stages Analysis")
 
-    # ── 0) choose Business / OM / Ecosystem
+    # ── 0) Mandatory category selection ──
     counts_raw = df["Type de situation"].str.lower().value_counts(dropna=False)
-    label_map  = {"Business": "business",
-                  "OM":       "operating model",
-                  "Ecosystem":"ecosystème"}
+    label_map = {
+        "Business": "business",
+        "OM": "operating model", 
+        "Ecosystem": "ecosystème"
+    }
 
-    radio_opts = ["All"] + [f"{k} ({counts_raw.get(v,0)})"
-                            for k, v in label_map.items()]
-    choice  = st.radio("Project category", radio_opts, horizontal=True, key="stage_type")
-    chosen  = choice.split()[0]                     # "All" | "Business" | …
+    chosen = st.selectbox(
+        "Select project category:",
+        options=list(label_map.keys()),
+        format_func=lambda x: f"{x} ({counts_raw.get(label_map[x], 0)})"
+    )
 
-    # ── 1) slice dataframe (min‑team slider already applied in filtered_df)
+    # ── 1) Filter dataframe based on selection ──
     df_stage = filtered_df.copy()
-    if chosen != "All":
-        long_key = label_map[chosen]
-        df_stage = df_stage[
-            df_stage["Type de situation"]
-                    .str.lower()
-                    .str.startswith(long_key, na=False)
-        ]
+    long_key = label_map[chosen]
+    df_stage = df_stage[
+        df_stage["Type de situation"]
+        .str.lower()
+        .str.startswith(long_key, na=False)
+    ]
+    
     if df_stage.empty:
-        st.info("No projects in this category and filter combination.")
+        st.info("No projects in this category with current filters.")
         st.stop()
 
-    # ── 2) canonical step sequences
-    business_sequence = [
-        "Soumission","Categorization","Ideation","Ideation | Demo Day","Development",
-        "Business | Incubation","Business | Pre-Hacking Committee","Business | Hacking Committee",
-        "Business | Acceleration","Business | Pre-Impact Committee","Business | Impact Committee",
-        "Business | Impact","Business | Series B"]
-    om_sequence = [
-        "Soumission","Categorization","Ideation","Ideation | Demo Day","Development",
-        "OM | Incubation","OM | Pre-Hacking Committee","OM | Hacking Committee",
-        "OM | Acceleration","OM | Pre-Impact Committee","OM | Impact Committee","OM | Impact"]
-    ecosystem_sequence = [
-        "Soumission","Categorization","Ideation","Ideation | Demo Day","Development",
-        "Ecosystem | Pre-Hacking Committee","Ecosystem | Hacking Committee",
-        "Ecosystem | Acceleration","Ecosystem | Pre-Impact Committee",
-        "Ecosystem | Impact Committee","Ecosystem | Impact"]
-    seq_map = {"Business": business_sequence,
-               "OM":       om_sequence,
-               "Ecosystem": ecosystem_sequence}
+    # ── 2) Define canonical step sequences ──
+    sequences = {
+        "Business": [
+            "Soumission", "Categorization", "Ideation", "Ideation | Demo Day", "Development",
+            "Business | Incubation", "Business | Pre-Hacking Committee", "Business | Hacking Committee",
+            "Business | Acceleration", "Business | Pre-Impact Committee", "Business | Impact Committee",
+            "Business | Impact", "Business | Series B"
+        ],
+        "OM": [
+            "Soumission", "Categorization", "Ideation", "Ideation | Demo Day", "Development",
+            "OM | Incubation", "OM | Pre-Hacking Committee", "OM | Hacking Committee",
+            "OM | Acceleration", "OM | Pre-Impact Committee", "OM | Impact Committee", "OM | Impact"
+        ],
+        "Ecosystem": [
+            "Soumission", "Categorization", "Ideation", "Ideation | Demo Day", "Development",
+            "Ecosystem | Pre-Hacking Committee", "Ecosystem | Hacking Committee",
+            "Ecosystem | Acceleration", "Ecosystem | Pre-Impact Committee",
+            "Ecosystem | Impact Committee", "Ecosystem | Impact"
+        ]
+    }
+    
+    current_sequence = sequences[chosen]
 
-    # ── 3) label ↔ step‑id lookup inside this slice
-    sid_list = sorted({c.split("(")[1].split(")")[0]           # e.g. step_12
-                       for c in df_stage.columns if "Step Name" in c},
-                      key=lambda s: int(s.split("_")[1]))
+    # ── 3) Create step lookup dictionaries ──
+    sid_list = sorted({c.split("(")[1].split(")")[0] for c in df_stage.columns if "Step Name" in c},
+                     key=lambda s: int(s.split("_")[1]))
+    
     sid_to_label = {}
     for sid in sid_list:
         lbls = df_stage[f"Step Name ({sid})"].dropna().astype(str)
@@ -774,46 +782,46 @@ with tab2:
             sid_to_label[sid] = lbls.mode().iat[0].strip()
     label_to_sid = {lbl: sid for sid, lbl in sid_to_label.items()}
 
-    # ── 4) assemble counts + name lists
-    if chosen == "All":
-        iter_labels = [sid_to_label[sid] for sid in sid_list]
-    else:
-        iter_labels = [lbl for lbl in seq_map[chosen] if lbl in label_to_sid]
+    # Filter labels to only include those in our current sequence
+    iter_labels = [lbl for lbl in current_sequence if lbl in label_to_sid]
 
+    # Helper function to gather project names
     def gather(mask):
         return df_stage.loc[mask, "Project name"].astype(str).tolist()
 
+    # ── 4) Create step status dataframe ──
     recs = []
     for lbl in iter_labels:
-        sid         = label_to_sid[lbl]
-        entry_col   = f"Entry date ({sid})"
-        submit_col  = f"Submission date ({sid})"
+        sid = label_to_sid[lbl]
+        entry_col = f"Entry date ({sid})"
+        submit_col = f"Submission date ({sid})"
 
-        entered     = df_stage.get(entry_col,  pd.Series(index=df_stage.index)).notna()
-        submitted   = df_stage.get(submit_col, pd.Series(index=df_stage.index)).notna()
+        entered = df_stage.get(entry_col, pd.Series(index=df_stage.index)).notna()
+        submitted = df_stage.get(submit_col, pd.Series(index=df_stage.index)).notna()
 
         recs.append(dict(
-            Step             = lbl.split("|")[-1].strip(),
-            Completed        = submitted.sum(),
-            Blocked          = (entered & ~submitted).sum(),
-            NotStarted       = (~entered).sum(),
-            Completed_names  = gather(submitted),
-            Blocked_names    = gather(entered & ~submitted),
-            NotStarted_names = gather(~entered)
+            FullStepName=lbl,
+            Step=lbl.split("|")[-1].strip(),
+            Completed=submitted.sum(),
+            Blocked=(entered & ~submitted).sum(),
+            NotStarted=(~entered).sum(),
+            Completed_names=gather(submitted),
+            Blocked_names=gather(entered & ~submitted),
+            NotStarted_names=gather(~entered)
         ))
 
     step_df = pd.DataFrame(recs)
-    step_df["Total"] = step_df[["Completed","Blocked","NotStarted"]].sum(axis=1)
-    xmax   = int(step_df["Total"].max())
-    dtick  = 1 if xmax <= 20 else None
+    step_df["Total"] = step_df[["Completed", "Blocked", "NotStarted"]].sum(axis=1)
+    xmax = int(step_df["Total"].max())
+    dtick = 1 if xmax <= 20 else None
 
-    # ── 5) stacked‑bar funnel
+    # ── 5) Create stacked-bar funnel chart ──
     clip = lambda lst, n=8: "<br>".join(lst[:n]) + ("<br>…" if len(lst) > n else "")
     fig = go.Figure()
 
-    for col, label in [("Completed","Completed"),
-                       ("Blocked","In progress"),
-                       ("NotStarted","Not started")]:
+    for col, label in [("Completed", "Completed"),
+                      ("Blocked", "In progress"),
+                      ("NotStarted", "Not started")]:
         fig.add_bar(
             y=step_df["Step"],
             x=step_df[col],
@@ -827,19 +835,21 @@ with tab2:
     fig.update_layout(
         barmode="stack",
         height=460,
-        title=f"Stage funnel – {chosen}",
+        title=f"Stage funnel – {chosen}",
         xaxis=dict(title="Number of projects",
-                   range=[0, xmax],
-                   dtick=dtick),
+                  range=[0, xmax],
+                  dtick=dtick),
         yaxis_title="",
         plot_bgcolor="white"
     )
     st.plotly_chart(fig, use_container_width=True)
 
-    # ── 6) drill‑down widgets
-    nice_status = {"Completed":"Completed",
-                   "Blocked":"In Progress",
-                   "NotStarted":"Not started"}
+    # ── 6) Drill-down widgets ──
+    nice_status = {
+        "Completed": "Completed",
+        "Blocked": "In Progress",
+        "NotStarted": "Not started"
+    }
 
     step_chosen = st.selectbox(
         "Select a step to inspect", step_df["Step"], key="step_select"
@@ -852,19 +862,21 @@ with tab2:
         key="status_select"
     )
 
+    # Get the full step name for the selected step
+    full_step_name = step_df.loc[step_df["Step"] == step_chosen, "FullStepName"].iat[0]
     names_sorted = sorted(
         step_df.loc[step_df["Step"] == step_chosen,
-                    f"{status_chosen}_names"].iat[0]
+                   f"{status_chosen}_names"].iat[0]
     )
 
     st.markdown(
         f"#### {nice_status[status_chosen]} – {step_chosen} "
-        f"({len(names_sorted)} project{'s' if len(names_sorted)!=1 else ''})"
+        f"({len(names_sorted)} project{'s' if len(names_sorted)!=1 else ''})"
     )
     tbl = pd.DataFrame({"Project name": names_sorted})
     st.dataframe(tbl, use_container_width=True)
 
-    # ── 7) download as XLSX  (xlsxwriter if available, else openpyxl)
+    # Download button
     import io, importlib
     engine = "xlsxwriter" if importlib.util.find_spec("xlsxwriter") else "openpyxl"
     buffer = io.BytesIO()
@@ -873,16 +885,196 @@ with tab2:
     buffer.seek(0)
 
     st.download_button(
-        "💾 Download This List",
+        "💾 Download This List",
         data=buffer,
         file_name=f"{step_chosen}_{status_chosen}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
-    with st.expander("ℹ What do these statuses mean?"):
+    with st.expander("ℹ What do these statuses mean?"):
         st.markdown("""
-* **Completed** – entry date **and** submission date present  
-* **In Progress** – entry date present, submission date missing  
-* **Not started** – entry date missing
-""")
+    * **Completed** – entry date **and** submission date present  
+    * **In Progress** – entry date present, submission date missing  
+    * **Not started** – entry date missing
+    """)
 
+    # ── 7) Stage Duration Analysis (Fixed to show ALL steps) ──
+    st.markdown("### Stage Duration Analysis")
+    
+    # Get the complete step sequence for the selected category
+    complete_steps = sequences[chosen]
+    
+    # Get display names (after "|") for all steps
+    display_names = [step.split("|")[-1].strip() for step in complete_steps]
+    
+    # Prepare duration data
+    duration_data = []
+    for step in complete_steps:
+        if step in label_to_sid:  # Only if step exists in data
+            sid = label_to_sid[step]
+            entry_col = f"Entry date ({sid})"
+            submit_col = f"Submission date ({sid})"
+            
+            if all(col in df_stage.columns for col in [entry_col, submit_col]):
+                # Safely handle datetime conversion
+                try:
+                    entries = df_stage[[entry_col, submit_col]].copy()
+                    entries[entry_col] = pd.to_datetime(entries[entry_col], errors='coerce')
+                    entries[submit_col] = pd.to_datetime(entries[submit_col], errors='coerce')
+                    entries = entries.dropna()
+                    
+                    if not entries.empty:
+                        durations = (entries[submit_col] - entries[entry_col]).dt.days
+                        for days in durations:
+                            duration_data.append({
+                                'Step': step.split("|")[-1].strip(),
+                                'Duration (days)': days
+                            })
+                except Exception as e:
+                    st.warning(f"Error processing dates for step {step}: {str(e)}")
+
+    duration_df = pd.DataFrame(duration_data)
+    
+    # Create visualization
+    fig = go.Figure()
+    
+    # Color palette from your COLORS dictionary
+    color_sequence = [
+        COLORS['mindaro'], COLORS['light_green'], COLORS['light_green_2'],
+        COLORS['emerald'], COLORS['keppel'], COLORS['verdigris'],
+        COLORS['bondi_blue'], COLORS['cerulean'], COLORS['lapis_lazuli']
+    ]
+    
+    # Add traces for ALL steps in the predefined order
+    for i, step_name in enumerate(display_names):
+        # Check if we have data for this step
+        step_has_data = not duration_df.empty and (duration_df['Step'] == step_name).any()
+        
+        if step_has_data:
+            step_data = duration_df[duration_df['Step'] == step_name]
+            
+            # Add box plot with real data
+            fig.add_trace(go.Box(
+                y=step_data["Duration (days)"],
+                name=step_name,
+                marker_color=color_sequence[i % len(color_sequence)],
+                boxmean=False,
+                line=dict(width=2),
+                boxpoints='outliers',
+                fillcolor=color_sequence[i % len(color_sequence)],
+                opacity=0.7,
+                width=0.4
+            ))
+            
+            # Add average marker
+            avg_days = step_data["Duration (days)"].mean()
+            fig.add_trace(go.Scatter(
+                x=[step_name],
+                y=[avg_days],
+                mode="markers+text",
+                marker=dict(
+                    color='red',
+                    size=12,
+                    symbol='diamond'
+                ),
+                text=[f"Avg: {int(avg_days)}d"],
+                textposition="top center",
+                showlegend=False
+            ))
+        else:
+            # Add invisible trace to maintain the step's position
+            fig.add_trace(go.Box(
+                y=[None],
+                name=step_name,
+                marker_color='rgba(0,0,0,0)',
+                line=dict(width=0),
+                fillcolor='rgba(0,0,0,0)',
+                width=0.4
+            ))
+
+    # Update layout to force all steps to appear in correct order
+    fig.update_layout(
+        title={
+            'text': f"<b>Stage Duration - {chosen} Projects</b>",
+            'y': 0.95,
+            'x': 0.5,
+            'xanchor': 'center',
+            'yanchor': 'top',
+            'font': dict(size=22, color=COLORS['indigo_dye'])
+        },
+        xaxis=dict(
+            title="Steps",
+            categoryorder='array',
+            categoryarray=display_names,  # This forces ALL steps to appear in order
+            tickangle=-45,
+            tickfont=dict(size=12)
+        ),
+        yaxis=dict(
+            title="Days to Complete",
+            gridcolor="#f3f4f6",
+            title_font=dict(size=16)),
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        margin=dict(t=100, b=150, l=50, r=50),
+        height=600,
+        showlegend=False
+    )
+
+    # Add explanatory note if no data exists
+    if duration_df.empty:
+        fig.add_annotation(
+            text="No duration data available for completed projects",
+            xref="paper", yref="paper",
+            x=0.5, y=0.5, showarrow=False,
+            font=dict(size=14, color=COLORS['lapis_lazuli'])
+        )
+
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # ── 8) Inactivity/Risk Heatmap ──
+    now = pd.Timestamp.now()
+    st.markdown("### Inactivity Risk Map")
+    
+    if "Current step name" in df_stage.columns:
+        risk_df = df_stage.copy()
+        risk_df["StepNameShort"] = risk_df["Current step name"].str.split("|").str[-1].str.strip()
+        
+        # Filter to only include steps in our sequence
+        current_display_names = [x.split("|")[-1].strip() for x in iter_labels]
+        risk_df = risk_df[risk_df["StepNameShort"].isin(current_display_names)]
+        
+        risk_df["Inactive (60+ days)"] = (now - risk_df["Project last update"]).dt.days >= 60
+        
+        # Ensure steps are ordered correctly
+        risk_df['StepNameShort'] = pd.Categorical(
+            risk_df['StepNameShort'],
+            categories=current_display_names,
+            ordered=True
+        )
+        
+        risk_pivot = pd.pivot_table(
+            risk_df,
+            index="StepNameShort",
+            values="Inactive (60+ days)",
+            aggfunc="sum"
+        ).reset_index()
+        
+        risk_pivot = risk_pivot.sort_values("StepNameShort")
+        
+        fig = px.bar(
+            risk_pivot,
+            x="Inactive (60+ days)",
+            y="StepNameShort",
+            orientation='h',
+            color="Inactive (60+ days)",
+            color_continuous_scale="reds",
+            title=f"Projects Inactive by Step (60+ days) - {chosen}",
+            labels={
+                "Inactive (60+ days)": "# Inactive Projects",
+                "StepNameShort": "Step"
+            }
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("No step data available for inactivity risk.")
