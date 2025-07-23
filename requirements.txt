@@ -2,3 +2,4 @@ streamlit
 pandas
 plotly
 openpyxl  # required for reading .xlsx files
+streamlit-plotly-events
