@@ -3,9 +3,31 @@ import pandas as pd
 from datetime import datetime
 import plotly.express as px
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from streamlit_plotly_events import plotly_events
 import pandas as pd
 import numpy as np
+import time
+import io
+import importlib.util
+import json
+
+
+# Initialize session state for performance tracking
+if 'load_time' not in st.session_state:
+    st.session_state.load_time = None
+if 'last_refresh' not in st.session_state:
+    st.session_state.last_refresh = datetime.now()
+
+# Performance tracking decorator
+def track_performance(func):
+    def wrapper(*args, **kwargs):
+        start_time = time.time()
+        result = func(*args, **kwargs)
+        end_time = time.time()
+        st.session_state.load_time = round(end_time - start_time, 2)
+        return result
+    return wrapper
 
 
 # Improved and safe color palette
@@ -30,11 +52,140 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Data loading with robust error handling and validation
+# Data validation and cleaning functions
+def validate_and_clean_data(data):
+    """
+    Comprehensive data validation and cleaning function
+    """
+    cleaning_report = {
+        'original_rows': len(data),
+        'issues_found': [],
+        'fixes_applied': [],
+        'final_rows': 0,
+        'data_quality_score': 0
+    }
+    
+    # 1. Handle missing values in critical columns
+    critical_columns = ["Project name", "Team size", "Project last update", "Current step name"]
+    
+    for col in critical_columns:
+        if col in data.columns:
+            missing_count = data[col].isnull().sum()
+            if missing_count > 0:
+                cleaning_report['issues_found'].append(f"{col}: {missing_count} missing values")
+                
+                if col == "Team size":
+                    # Fill with median team size
+                    median_size = data[col].median()
+                    data[col] = data[col].fillna(median_size)
+                    cleaning_report['fixes_applied'].append(f"{col}: Filled {missing_count} missing values with median ({median_size})")
+                
+                elif col == "Current step name":
+                    # Fill with "Unknown Step"
+                    data[col] = data[col].fillna("Unknown Step")
+                    cleaning_report['fixes_applied'].append(f"{col}: Filled {missing_count} missing values with 'Unknown Step'")
+    
+    # 2. Clean and validate Team size
+    if "Team size" in data.columns:
+        # Convert to numeric, handling errors
+        original_team_size = data["Team size"].copy()
+        data["Team size"] = pd.to_numeric(data["Team size"], errors='coerce')
+        
+        # Check for outliers (team size > 50 or < 1)
+        outliers = data[(data["Team size"] > 50) | (data["Team size"] < 1)]["Team size"].count()
+        if outliers > 0:
+            cleaning_report['issues_found'].append(f"Team size: {outliers} outlier values (>50 or <1)")
+            # Cap extreme values
+            data.loc[data["Team size"] > 50, "Team size"] = 50
+            data.loc[data["Team size"] < 1, "Team size"] = 1
+            cleaning_report['fixes_applied'].append(f"Team size: Capped {outliers} outlier values")
+    
+    # 3. Standardize text columns
+    text_columns = ["Current step name", "Thématique", "Type de situation"]
+    for col in text_columns:
+        if col in data.columns:
+            # Remove extra whitespace and standardize
+            original_values = data[col].copy()
+            data[col] = data[col].astype(str).str.strip()
+            data[col] = data[col].replace(['nan', 'None', 'null'], None)
+            
+            # Count how many were cleaned
+            changes = (original_values.astype(str).str.strip() != data[col].astype(str)).sum()
+            if changes > 0:
+                cleaning_report['fixes_applied'].append(f"{col}: Cleaned {changes} text entries")
+    
+    # 4. Validate and clean date columns
+    date_columns = ["Project last update"]
+    for col in date_columns:
+        if col in data.columns:
+            # Check for future dates
+            future_dates = data[data[col] > pd.Timestamp.now()][col].count()
+            if future_dates > 0:
+                cleaning_report['issues_found'].append(f"{col}: {future_dates} future dates found")
+                # Set future dates to today
+                data.loc[data[col] > pd.Timestamp.now(), col] = pd.Timestamp.now()
+                cleaning_report['fixes_applied'].append(f"{col}: Fixed {future_dates} future dates")
+    
+    # 5. Calculate data quality score
+    cleaning_report['final_rows'] = len(data)
+    
+    # Quality factors
+    completeness = 1 - (data.isnull().sum().sum() / (len(data) * len(data.columns)))
+    consistency = 1 - (len(cleaning_report['issues_found']) / max(len(data), 1)) * 0.1
+    validity = 1 - max(0, (cleaning_report['original_rows'] - cleaning_report['final_rows']) / cleaning_report['original_rows'])
+    
+    cleaning_report['data_quality_score'] = round((completeness * 0.4 + consistency * 0.3 + validity * 0.3) * 100, 1)
+    
+    return data, cleaning_report
+
+# Enhanced data loading with flexible format support and comprehensive cleaning
 @st.cache_data
+@track_performance  
 def load_data():
+    """
+    Load data with automatic format detection (Excel preferred, CSV fallback)
+    """
     try:
-        data = pd.read_excel("data/Clean_Dashboard_Data.xlsx")
+        # Define possible file paths in order of preference
+        file_paths = [
+            "data/Clean_Dashboard_Data.xlsx",  # Primary: Excel format
+            "data/Clean_Dashboard_Data.csv"    # Fallback: CSV format
+        ]
+        
+        data = None
+        used_file = None
+        
+        # Try each file format
+        for file_path in file_paths:
+            try:
+                if file_path.endswith('.xlsx'):
+                    data = pd.read_excel(file_path)
+                    used_file = file_path
+                    st.session_state.data_source = f"📊 Excel: {file_path}"
+                    break
+                elif file_path.endswith('.csv'):
+                    data = pd.read_csv(file_path)
+                    used_file = file_path
+                    st.session_state.data_source = f"📄 CSV: {file_path}"
+                    break
+            except FileNotFoundError:
+                continue
+            except Exception as e:
+                st.warning(f"Could not load {file_path}: {str(e)}")
+                continue
+        
+        if data is None:
+            st.error("❌ No valid data file found! Please ensure either 'Clean_Dashboard_Data.xlsx' or 'Clean_Dashboard_Data.csv' exists in the data/ folder.")
+            st.stop()
+        
+        # Log successful loading
+        st.session_state.file_info = {
+            'source': used_file,
+            'format': 'Excel' if used_file.endswith('.xlsx') else 'CSV',
+            'size_mb': round(data.memory_usage(deep=True).sum() / 1024 / 1024, 2),
+            'rows': len(data),
+            'columns': len(data.columns)
+        }
         
         # Verify required columns exist
         required_columns = [
@@ -43,24 +194,27 @@ def load_data():
         ]
         missing_cols = [col for col in required_columns if col not in data.columns]
         if missing_cols:
-            st.error(f"Missing required columns: {', '.join(missing_cols)}")
+            st.error(f"❌ Missing required columns: {', '.join(missing_cols)}")
             st.stop()
         
-        # Ensure 'Project last update' is datetime
+        # Basic datetime conversion
         data['Project last update'] = pd.to_datetime(data['Project last update'], errors='coerce')
         
-        # Check for parsing errors
-        if data['Project last update'].isnull().any():
-            st.warning("Some 'Project last update' dates couldn't be parsed. These rows will be dropped.")
-            data = data.dropna(subset=['Project last update'])
+        # Apply comprehensive cleaning
+        cleaned_data, cleaning_report = validate_and_clean_data(data)
         
-        return data
+        # Store cleaning report in session state for display
+        st.session_state.cleaning_report = cleaning_report
+        
+        # Check for parsing errors after cleaning
+        if cleaned_data['Project last update'].isnull().any():
+            remaining_nulls = cleaned_data['Project last update'].isnull().sum()
+            st.warning(f"⚠️ {remaining_nulls} dates couldn't be parsed and will be excluded from time-based analysis.")
+        
+        return cleaned_data
     
-    except FileNotFoundError:
-        st.error("Data file not found. Please ensure the file path is correct.")
-        st.stop()
     except Exception as e:
-        st.error(f"An unexpected error occurred: {e}")
+        st.error(f"❌ An unexpected error occurred while loading data: {e}")
         st.stop()
 
 # Load the dataset
@@ -69,6 +223,56 @@ df = load_data()
 # ────────────────────── ENHANCED SIDEBAR ────────────────────── #
 with st.sidebar:
     st.title("📌 Dashboard Navigation")
+    
+    # Performance metrics section
+    with st.expander("⚡ Performance Metrics"):
+        if st.session_state.load_time:
+            st.metric("Data Load Time", f"{st.session_state.load_time}s")
+        st.metric("Last Refresh", st.session_state.last_refresh.strftime("%H:%M:%S"))
+        st.metric("Total Records", f"{len(df):,}")
+        
+        # Show data source information
+        if hasattr(st.session_state, 'file_info'):
+            info = st.session_state.file_info
+            st.write(f"**Data Source:** {info['format']}")
+            st.write(f"**File Size:** {info['size_mb']} MB")
+            st.write(f"**Dimensions:** {info['rows']:,} × {info['columns']}")
+        
+        if st.button("🔄 Refresh Data"):
+            st.cache_data.clear()
+            st.session_state.last_refresh = datetime.now()
+            st.rerun()
+    
+    # Data Quality Report
+    if hasattr(st.session_state, 'cleaning_report'):
+        with st.expander("🧹 Data Quality Report"):
+            report = st.session_state.cleaning_report
+            
+            # Quality score with color coding
+            score = report['data_quality_score']
+            if score >= 90:
+                score_color = "🟢"
+            elif score >= 70:
+                score_color = "🟡"
+            else:
+                score_color = "🔴"
+            
+            st.metric("Data Quality Score", f"{score_color} {score}%")
+            st.metric("Rows Processed", f"{report['original_rows']:,}")
+            st.metric("Issues Found", len(report['issues_found']))
+            st.metric("Fixes Applied", len(report['fixes_applied']))
+            
+            if report['issues_found']:
+                st.write("**Issues Found:**")
+                for issue in report['issues_found']:
+                    st.write(f"• {issue}")
+            
+            if report['fixes_applied']:
+                st.write("**Fixes Applied:**")
+                for fix in report['fixes_applied']:
+                    st.write(f"✅ {fix}")
+    
+    st.markdown("---")
     
     # Multiselect for charts to display
     selected_charts = st.multiselect(
@@ -270,17 +474,20 @@ st.markdown('<div class="title-header"> Le Mouvement Dashboard</div>', unsafe_al
 st.markdown('<div class="sub-header">A real-time visual overview of intrapreneurial projects led within OCP\'s innovation ecosystem.</div>', unsafe_allow_html=True)
 
 # ────────────────────── MAIN CONTENT TABS ────────────────────── #
-tab1, tab2 = st.tabs(["📊 Overview Dashboard", "📈 Stages Analysis"])
+tab1, tab2, tab3 = st.tabs(["📊 Overview Dashboard", "📈 Stages Analysis", "🧹 Data Quality"])
 
 with tab1:
     # ────────────────────── KPI SECTION ────────────────────── #
-    col1, col2, col3 = st.columns([1, 1, 1])
+    st.markdown("### 📊 Key Performance Indicators")
+    
+    # Add data quality indicators
+    col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
 
     with col1:
         st.markdown(f"""
             <div class="metric-box">
                 <div class="metric-title">Total Projects</div>
-                <div class="metric-value"> {filtered_df.shape[0]}</div>
+                <div class="metric-value">{filtered_df.shape[0]}</div>
             </div>
         """, unsafe_allow_html=True)
 
@@ -289,7 +496,7 @@ with tab1:
         st.markdown(f"""
             <div class="metric-box">
                 <div class="metric-title">Last Update</div>
-                <div class="metric-value"> {pd.to_datetime(last_update).date()}</div>
+                <div class="metric-value">{pd.to_datetime(last_update).date()}</div>
             </div>
         """, unsafe_allow_html=True)
 
@@ -300,6 +507,17 @@ with tab1:
             <div class="metric-box">
                 <div class="metric-title">Inactive Projects (60+ days)</div>
                 <div class="metric-value">⏳ {inactive_projects.shape[0]}</div>
+            </div>
+        """, unsafe_allow_html=True)
+        
+    with col4:
+        # Data completeness indicator
+        step_completeness = filtered_df["Current step name"].notna().mean() * 100
+        color = "🟢" if step_completeness > 90 else "🟡" if step_completeness > 70 else "🔴"
+        st.markdown(f"""
+            <div class="metric-box">
+                <div class="metric-title">Data Completeness</div>
+                <div class="metric-value">{color} {step_completeness:.1f}%</div>
             </div>
         """, unsafe_allow_html=True)
 
@@ -930,6 +1148,7 @@ with tab2:
                                 'Step': step.split("|")[-1].strip(),
                                 'Duration (days)': days
                             })
+                        
                 except Exception as e:
                     st.warning(f"Error processing dates for step {step}: {str(e)}")
 
@@ -1031,9 +1250,9 @@ with tab2:
 
     st.plotly_chart(fig, use_container_width=True)
     
-    # ── 8) Inactivity/Risk Heatmap ──
+    # ── 8) Executive Risk Intelligence (BCG-Grade) ──
     now = pd.Timestamp.now()
-    st.markdown("### Inactivity Risk Map")
+    st.markdown("### ⚠️ Risk Intelligence Dashboard")
     
     if "Current step name" in df_stage.columns:
         risk_df = df_stage.copy()
@@ -1043,38 +1262,440 @@ with tab2:
         current_display_names = [x.split("|")[-1].strip() for x in iter_labels]
         risk_df = risk_df[risk_df["StepNameShort"].isin(current_display_names)]
         
-        risk_df["Inactive (60+ days)"] = (now - risk_df["Project last update"]).dt.days >= 60
+        # Calculate days since last update
+        risk_df["Days_Since_Update"] = (now - risk_df["Project last update"]).dt.days
         
-        # Ensure steps are ordered correctly
-        risk_df['StepNameShort'] = pd.Categorical(
-            risk_df['StepNameShort'],
-            categories=current_display_names,
-            ordered=True
+        # BCG Risk Classification (Clear, Actionable Categories)
+        risk_df["Risk_Category"] = pd.cut(
+            risk_df["Days_Since_Update"],
+            bins=[0, 30, 60, 90, float('inf')],
+            labels=['Active', 'Watch', 'Action Required', 'Critical'],
+            include_lowest=True
         )
         
-        risk_pivot = pd.pivot_table(
-            risk_df,
-            index="StepNameShort",
-            values="Inactive (60+ days)",
-            aggfunc="sum"
-        ).reset_index()
+        # === EXECUTIVE SUMMARY (Top-line insights) ===
+        total_projects = len(risk_df)
+        critical_projects = (risk_df["Days_Since_Update"] >= 90).sum()
+        action_required = ((risk_df["Days_Since_Update"] >= 60) & (risk_df["Days_Since_Update"] < 90)).sum()
+        watch_list = ((risk_df["Days_Since_Update"] >= 30) & (risk_df["Days_Since_Update"] < 60)).sum()
         
-        risk_pivot = risk_pivot.sort_values("StepNameShort")
+        # Portfolio Risk Score (0-100, where 100 = all projects active)
+        risk_score = max(0, 100 - ((critical_projects * 40 + action_required * 20 + watch_list * 10) / total_projects))
         
-        fig = px.bar(
-            risk_pivot,
-            x="Inactive (60+ days)",
-            y="StepNameShort",
-            orientation='h',
-            color="Inactive (60+ days)",
-            color_continuous_scale="reds",
-            title=f"Projects Inactive by Step (60+ days) - {chosen}",
-            labels={
-                "Inactive (60+ days)": "# Inactive Projects",
-                "StepNameShort": "Step"
-            }
-        )
+        # Risk Status Determination
+        if risk_score >= 85:
+            risk_status = "🟢 LOW RISK"
+            risk_color = "#10B981"
+        elif risk_score >= 70:
+            risk_status = "🟡 MODERATE RISK"
+            risk_color = "#F59E0B"
+        elif risk_score >= 50:
+            risk_status = "🟠 HIGH RISK"
+            risk_color = "#F97316"
+        else:
+            risk_status = "🔴 CRITICAL RISK"
+            risk_color = "#DC2626"
         
-        st.plotly_chart(fig, use_container_width=True)
+        # Executive Summary Card
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, {risk_color}15, {risk_color}05); 
+                    border-left: 5px solid {risk_color}; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <h3 style="margin: 0; color: {risk_color}; font-size: 24px;">{risk_status}</h3>
+            <p style="margin: 5px 0 0 0; font-size: 16px; color: #374151;">
+                Portfolio Risk Score: <strong>{risk_score:.0f}/100</strong> | 
+                {critical_projects} Critical | {action_required} Action Required | {watch_list} Watch List
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # === CRITICAL INSIGHT: BOTTLENECK ANALYSIS ===
+        if critical_projects > 0 or action_required > 0:
+            st.markdown("#### 🎯 **Primary Risk Driver**")
+            
+            # Identify the step with highest concentration of at-risk projects
+            at_risk_by_step = risk_df[risk_df["Days_Since_Update"] >= 60].groupby("StepNameShort").size().sort_values(ascending=False)
+            
+            if not at_risk_by_step.empty:
+                primary_bottleneck = at_risk_by_step.index[0]
+                bottleneck_count = at_risk_by_step.iloc[0]
+                total_in_step = risk_df[risk_df["StepNameShort"] == primary_bottleneck].shape[0]
+                bottleneck_rate = (bottleneck_count / total_in_step * 100)
+                
+                col1, col2, col3 = st.columns([2, 1, 1])
+                with col1:
+                    st.error(f"**{primary_bottleneck}** step has {bottleneck_count} at-risk projects ({bottleneck_rate:.0f}% of step)")
+                with col2:
+                    st.metric("At-Risk Projects", bottleneck_count, help="Projects requiring immediate attention")
+                with col3:
+                    st.metric("Risk Rate", f"{bottleneck_rate:.0f}%", help="Percentage of projects at risk in this step")
+        
+        # === ACTIONABLE VISUALIZATION (Single, Clear Chart) ===
+        st.markdown("#### 📊 Risk Distribution by Stage")
+        
+        # Create a focused risk heatmap showing only Action Required and Critical
+        risk_pivot = risk_df.groupby(['StepNameShort', 'Risk_Category']).size().unstack(fill_value=0)
+        
+        # Ensure proper ordering
+        risk_pivot = risk_pivot.reindex(current_display_names, fill_value=0)
+        
+        # Focus on actionable risks only
+        actionable_risks = []
+        if 'Critical' in risk_pivot.columns:
+            actionable_risks.append('Critical')
+        if 'Action Required' in risk_pivot.columns:
+            actionable_risks.append('Action Required')
+        if 'Watch' in risk_pivot.columns:
+            actionable_risks.append('Watch')
+        
+        if actionable_risks:
+            fig = go.Figure()
+            
+            colors = {'Critical': '#DC2626', 'Action Required': '#F97316', 'Watch': '#F59E0B'}
+            
+            for risk_type in actionable_risks:
+                if risk_type in risk_pivot.columns:
+                    fig.add_trace(go.Bar(
+                        name=risk_type,
+                        y=risk_pivot.index,
+                        x=risk_pivot[risk_type],
+                        orientation='h',
+                        marker_color=colors[risk_type],
+                        text=risk_pivot[risk_type],
+                        textposition='inside',
+                        hovertemplate=f"%{{y}}<br>{risk_type}: %{{x}} projects<extra></extra>"
+                    ))
+            
+            fig.update_layout(
+                title="",
+                xaxis_title="Number of At-Risk Projects",
+                yaxis_title="",
+                barmode='stack',
+                height=400,
+                plot_bgcolor='white',
+                paper_bgcolor='white',
+                showlegend=True,
+                legend=dict(orientation="h", yanchor="bottom", y=-0.15, xanchor="center", x=0.5),
+                margin=dict(l=10, r=10, t=10, b=80)
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+        
+        # === IMMEDIATE ACTIONS (Manager-Ready) ===
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            if critical_projects > 0:
+                st.markdown("#### 🚨 **IMMEDIATE ACTIONS**")
+                critical_list = risk_df[risk_df["Days_Since_Update"] >= 90][["Project name", "StepNameShort", "Days_Since_Update"]]
+                critical_list = critical_list.sort_values("Days_Since_Update", ascending=False)
+                critical_list.columns = ["Project", "Stage", "Days Stalled"]
+                
+                st.dataframe(
+                    critical_list.head(10), 
+                    use_container_width=True, 
+                    height=300,
+                    column_config={
+                        "Days Stalled": st.column_config.NumberColumn(
+                            "Days Stalled",
+                            format="%d days",
+                            help="Days since last project update"
+                        )
+                    }
+                )
+                
+                if len(critical_list) > 10:
+                    st.caption(f"Showing top 10 of {len(critical_list)} critical projects")
+            else:
+                st.success("✅ **No Critical Projects**\n\nAll projects are within acceptable activity thresholds.")
+        
+        with col2:
+            st.markdown("#### 📋 **RECOMMENDED ACTIONS**")
+            
+            recommendations = []
+            
+            # Data-driven recommendations
+            if critical_projects > 0:
+                recommendations.append(f"**Week 1**: Escalate {critical_projects} critical projects to stakeholders")
+            
+            if action_required > 0:
+                recommendations.append(f"**Week 2**: Implement check-ins for {action_required} stalled projects")
+            
+            if bottleneck_rate > 40:  # If any step has >40% at-risk rate
+                recommendations.append(f"**Month 1**: Process review for {primary_bottleneck} stage")
+            
+            if risk_score < 70:
+                recommendations.append("**Ongoing**: Weekly portfolio risk reviews until score >70")
+            
+            # Display recommendations or success message
+            if recommendations:
+                for i, rec in enumerate(recommendations, 1):
+                    st.markdown(f"{i}. {rec}")
+            else:
+                st.info("**Portfolio Status: Healthy**\n\nContinue current monitoring practices.")
+            
+            # Quick Export for Manager
+            if critical_projects > 0 or action_required > 0:
+                at_risk_export = risk_df[risk_df["Days_Since_Update"] >= 60][
+                    ["Project name", "StepNameShort", "Days_Since_Update", "Risk_Category"]
+                ].copy()
+                at_risk_export.columns = ["Project", "Current_Stage", "Days_Inactive", "Risk_Level"]
+                
+                buffer = io.BytesIO()
+                with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+                    at_risk_export.to_excel(writer, index=False, sheet_name="At_Risk_Projects")
+                buffer.seek(0)
+                
+                st.download_button(
+                    "� Export Risk Report",
+                    data=buffer,
+                    file_name=f"risk_report_{chosen}_{pd.Timestamp.now().strftime('%Y%m%d')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    help="Executive summary for manager review"
+                )
     else:
-        st.info("No step data available for inactivity risk.")
+        st.info("**Data Limitation**: Step information required for risk analysis.")
+
+# ────────────────────── DATA QUALITY TAB ──────────────────────
+with tab3:
+    st.markdown("### 🧹 Data Quality Analysis")
+    st.markdown("Comprehensive analysis of data completeness, consistency, and quality issues.")
+    
+    # Data Quality Overview
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        # Overall completeness
+        total_cells = len(df) * len(df.columns)
+        non_null_cells = df.count().sum()
+        completeness = (non_null_cells / total_cells) * 100
+        
+        st.metric(
+            "Overall Completeness",
+            f"{completeness:.1f}%",
+            help="Percentage of non-null values across all columns"
+        )
+    
+    with col2:
+        # Data freshness
+        if 'Project last update' in df.columns:
+            latest_update = df['Project last update'].max()
+            days_since = (pd.Timestamp.now() - latest_update).days
+            st.metric(
+                "Data Freshness",
+                f"{days_since} days",
+                help="Days since the most recent project update"
+            )
+    
+    with col3:
+        # Duplicate projects
+        duplicates = df['Project name'].duplicated().sum()
+        st.metric(
+            "Duplicate Projects",
+            duplicates,
+            help="Number of projects with duplicate names"
+        )
+    
+    st.markdown("---")
+    
+    # Column-by-Column Analysis
+    st.markdown("#### Column Quality Analysis")
+    
+    quality_data = []
+    for col in df.columns:
+        if col in ['Project name', 'Team size', 'Project last update', 'Current step name', 'Thématique', 'Type de situation']:
+            missing_count = df[col].isnull().sum()
+            missing_pct = (missing_count / len(df)) * 100
+            unique_values = df[col].nunique()
+            
+            # Determine quality status
+            if missing_pct == 0:
+                status = "🟢 Excellent"
+            elif missing_pct < 5:
+                status = "🟡 Good"
+            elif missing_pct < 15:
+                status = "🟠 Fair"
+            else:
+                status = "🔴 Poor"
+            
+            quality_data.append({
+                'Column': col,
+                'Missing Count': missing_count,
+                'Missing %': f"{missing_pct:.1f}%",
+                'Unique Values': unique_values,
+                'Quality Status': status
+            })
+    
+    quality_df = pd.DataFrame(quality_data)
+    st.dataframe(quality_df, use_container_width=True)
+    
+    # Data Distribution Analysis
+    st.markdown("#### Data Distribution Issues")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        # Team size distribution issues
+        if 'Team size' in df.columns:
+            team_size_clean = pd.to_numeric(df['Team size'], errors='coerce')
+            outliers = team_size_clean[(team_size_clean > 20) | (team_size_clean < 1)]
+            
+            fig = px.histogram(
+                team_size_clean.dropna(),
+                title="Team Size Distribution",
+                nbins=20,
+                color_discrete_sequence=[COLORS['verdigris']]
+            )
+            fig.update_layout(
+                xaxis_title="Team Size",
+                yaxis_title="Count",
+                height=300
+            )
+            st.plotly_chart(fig, use_container_width=True)
+            
+            if len(outliers) > 0:
+                st.warning(f"Found {len(outliers)} team size outliers (>20 or <1)")
+    
+    with col2:
+        # Project age distribution
+        if 'Project last update' in df.columns:
+            df_with_dates = df.dropna(subset=['Project last update'])
+            if not df_with_dates.empty:
+                df_with_dates['Days Since Update'] = (pd.Timestamp.now() - df_with_dates['Project last update']).dt.days
+                
+                fig = px.histogram(
+                    df_with_dates['Days Since Update'],
+                    title="Project Age Distribution",
+                    nbins=20,
+                    color_discrete_sequence=[COLORS['bondi_blue']]
+                )
+                fig.update_layout(
+                    xaxis_title="Days Since Last Update",
+                    yaxis_title="Count",
+                    height=300
+                )
+                st.plotly_chart(fig, use_container_width=True)
+                
+                stale_projects = (df_with_dates['Days Since Update'] > 90).sum()
+                if stale_projects > 0:
+                    st.warning(f"Found {stale_projects} projects not updated in 90+ days")
+    
+    # Data Cleaning Recommendations
+    st.markdown("#### 🛠️ Data Cleaning Recommendations")
+    
+    recommendations = []
+    
+    # Check for missing values
+    missing_data = df.isnull().sum()
+    for col, missing_count in missing_data.items():
+        if missing_count > 0 and col in ['Project name', 'Team size', 'Current step name']:
+            pct = (missing_count / len(df)) * 100
+            recommendations.append(f"**{col}**: {missing_count} missing values ({pct:.1f}%) - Consider data collection improvement")
+    
+    # Check for inconsistent formatting
+    if 'Current step name' in df.columns:
+        step_variations = df['Current step name'].value_counts()
+        if len(step_variations) > 20:  # Many unique steps might indicate inconsistency
+            recommendations.append("**Current step name**: High number of unique values - Review for naming consistency")
+    
+    # Check for data freshness
+    if 'Project last update' in df.columns:
+        old_data = (pd.Timestamp.now() - df['Project last update']).dt.days.max()
+        if old_data > 180:
+            recommendations.append(f"**Data freshness**: Oldest data is {old_data} days old - Consider data refresh schedule")
+    
+    if recommendations:
+        for rec in recommendations:
+            st.write(f"• {rec}")
+    else:
+        st.success("✅ No major data quality issues detected!")
+    
+    # Export cleaned data option
+    st.markdown("#### 📥 Export & Format Options")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        if st.button("📊 Download Quality Report"):
+            quality_report = {
+                'timestamp': pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'data_source': st.session_state.get('file_info', {}).get('source', 'Unknown'),
+                'total_records': len(df),
+                'data_completeness': f"{completeness:.1f}%",
+                'column_analysis': quality_df.to_dict('records'),
+                'recommendations': recommendations
+            }
+            
+            # Convert to JSON for download
+            import json
+            report_json = json.dumps(quality_report, indent=2)
+            
+            st.download_button(
+                "💾 Download Quality Report (JSON)",
+                data=report_json,
+                file_name=f"data_quality_report_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.json",
+                mime="application/json"
+            )
+    
+    with col2:
+        if st.button("📋 Download Cleaned Dataset (Excel)"):
+            # Apply the same cleaning that was done during load
+            cleaned_df, _ = validate_and_clean_data(df.copy())
+            
+            buffer = io.BytesIO()
+            with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                cleaned_df.to_excel(writer, index=False, sheet_name="Cleaned_Data")
+            buffer.seek(0)
+            
+            st.download_button(
+                "💾 Download as Excel",
+                data=buffer,
+                file_name=f"cleaned_dashboard_data_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+            
+    with col3:
+        if st.button("📄 Download Cleaned Dataset (CSV)"):
+            # Apply the same cleaning that was done during load
+            cleaned_df, _ = validate_and_clean_data(df.copy())
+            
+            csv_buffer = cleaned_df.to_csv(index=False)
+            
+            st.download_button(
+                "💾 Download as CSV",
+                data=csv_buffer,
+                file_name=f"cleaned_dashboard_data_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime="text/csv"
+            )
+    
+    # Data Format Information
+    st.markdown("#### 📁 Current Data Source")
+    if hasattr(st.session_state, 'file_info'):
+        info = st.session_state.file_info
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.info(f"""
+            **Current Source:** {info['format']} format  
+            **File:** `{info['source']}`  
+            **Size:** {info['size_mb']} MB  
+            **Dimensions:** {info['rows']:,} rows × {info['columns']} columns
+            """)
+        
+        with col2:
+            st.success("""
+            **✅ Format Support:**
+            - Excel (.xlsx) - Preferred format
+            - CSV (.csv) - Fallback format
+            - Automatic detection & loading
+            - Cross-format compatibility
+            """)
+    
+    # Format conversion recommendations
+    if hasattr(st.session_state, 'file_info') and st.session_state.file_info['format'] == 'CSV':
+        st.warning("""
+        **💡 Recommendation:** Consider using Excel format for better data type preservation and faster loading.
+        You can convert your CSV to Excel using the download options above.
+        """)
+    
+    st.markdown("---")
+    st.markdown("*Dashboard automatically detects and loads the best available format (Excel preferred, CSV fallback)*")
