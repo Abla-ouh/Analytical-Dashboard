@@ -47,7 +47,7 @@ COLORS = {
 
 # Streamlit page configuration
 st.set_page_config(
-    page_title="🚀 Le Mouvement Dashboard",
+    page_title=" Le Mouvement Dashboard",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -478,7 +478,7 @@ tab1, tab2, tab3 = st.tabs(["📊 Overview Dashboard", "📈 Stages Analysis", "
 
 with tab1:
     # ────────────────────── KPI SECTION ────────────────────── #
-    st.markdown("### 📊 Key Performance Indicators")
+    st.markdown("###  Key Performance Indicators")
     
     # Add data quality indicators
     col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
@@ -603,7 +603,16 @@ with tab1:
         # Sort by count
         theme_data = theme_data.sort_values(by="Count", ascending=True)
 
-        # Build Plotly chart
+        # Store thematic project lists in session state
+        if 'thematic_projects' not in st.session_state:
+            st.session_state.thematic_projects = {}
+        
+        # Group projects by thematic for the full list
+        for thematic in filtered_df['Thématique'].unique():
+            projects = filtered_df[filtered_df['Thématique'] == thematic][['Project name', 'Team size', 'Project last update', 'Current step name']]
+            st.session_state.thematic_projects[thematic] = projects
+        
+        # Add click callback data to figure
         fig = px.bar(
             theme_data,
             x="Count",
@@ -615,8 +624,7 @@ with tab1:
             color_discrete_sequence=[
                 COLORS['mindaro'], COLORS['light_green'], COLORS['light_green_2'],
                 COLORS['emerald'], COLORS['keppel'], COLORS['verdigris']
-            ],
-            custom_data=["Project name", "Project last update", "Team size"]
+            ]
         )
 
         fig.update_traces(
@@ -624,13 +632,8 @@ with tab1:
             textposition='outside',
             marker_line_color='white',
             marker_line_width=1,
-            hovertemplate="""
-                <b>%%{y}</b><br>
-                Projects: %%{x}<br>
-                Last Update: %%{customdata[1]}<br>
-                Avg Team Size: %%{customdata[2]}<br><br>
-                <b>Sample Projects:</b><br>%%{customdata[0]}<extra></extra>
-            """
+            hovertemplate="<b>%{y}</b><br>Projects: %{x}<extra></extra>",
+            customdata=theme_data['Theme']  # Store theme names for click events
         )
 
         # Layout
@@ -645,19 +648,247 @@ with tab1:
             showlegend=False
         )
 
-        st.markdown('<div class="chart-title">Projects by Thematic Area (%)</div>', unsafe_allow_html=True)
-        st.plotly_chart(fig, use_container_width=True)
+        # Enhanced styling for interactive elements
+        st.markdown("""
+            <style>
+            .thematic-section {
+                background-color: white;
+                border-radius: 12px;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+                margin-bottom: 1rem;
+            }
+            .thematic-controls {
+                display: flex;
+                align-items: center;
+                padding: 1rem;
+                border-bottom: 1px solid #f0f0f0;
+            }
+            .thematic-content {
+                padding: 1.5rem;
+                background-color: white;
+                border-radius: 8px;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            }
+            .stats-badge {
+                display: inline-block;
+                padding: 4px 8px;
+                border-radius: 4px;
+                font-size: 0.85rem;
+                margin-right: 8px;
+                background-color: #f3f4f6;
+                color: #374151;
+            }
+            .interaction-hint {
+                color: #6B7280;
+                font-size: 0.875rem;
+                margin-bottom: 0.5rem;
+            }
+            </style>
+        """, unsafe_allow_html=True)
+
+        st.markdown('<div class="chart-title">Projects by Thematic Area</div>', unsafe_allow_html=True)
+        st.markdown('<div class="interaction-hint">👇🏻 use the selector below to explore projects</div>', unsafe_allow_html=True)
+        
+        # Display the chart and get clicked data
+        clicked = st.plotly_chart(fig, use_container_width=True)
+        
+        # Thematic selector with improved UX
+        with st.container():
+            st.markdown('<div class="thematic-section">', unsafe_allow_html=True)
+            selected_thematic = st.selectbox(
+                "Select a thematic area",
+                options=[''] + list(st.session_state.thematic_projects.keys()),
+                key='thematic_selector',
+                format_func=lambda x: f"{x} ({len(st.session_state.thematic_projects[x]) if x else 0} projects)"
+            )
+            st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Show project details with premium presentation
+        if selected_thematic:
+            projects_df = st.session_state.thematic_projects[selected_thematic]
+            
+            # Enhanced styling for premium look
+            st.markdown("""
+                <style>
+                .premium-container {
+                    background: linear-gradient(to right, #ffffff, #f8f9fa);
+                    border: 1px solid #e5e7eb;
+                    border-radius: 12px;
+                    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+                }
+                .metric-grid {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                    gap: 0.5rem;
+                    margin-bottom: 1rem;
+                }
+                .thematic-metric-card {
+                    background: white;
+                    padding: 0.75rem;
+                    border-radius: 8px;
+                    border: 1px solid #e5e7eb;
+                    transition: all 0.2s ease;
+                }
+                .thematic-metric-card:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+                }
+                .thematic-metric-label {
+                    font-size: 0.875rem;
+                    color: #6B7280;
+                    margin-bottom: 0.25rem;
+                }
+                .thematic-metric-value {
+                    font-size: 1.25rem;
+                    font-weight: 600;
+                    color: """ + COLORS['indigo_dye'] + """;
+                }
+                .status-indicator {
+                    display: inline-block;
+                    width: 8px;
+                    height: 8px;
+                    border-radius: 50%;
+                    margin-right: 6px;
+                }
+                .header-section {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    padding-left: 1rem;
+                    border-bottom: 2px solid #f3f4f6;
+                }
+                .title-badge {
+                    background-color: """ + COLORS['cerulean'] + """;
+                    color: white;
+                    padding: 0.25rem 0.75rem;
+                    border-radius: 16px;
+                    font-size: 0.875rem;
+                    font-weight: 500;
+                }
+                </style>
+            """, unsafe_allow_html=True)
+            
+            with st.container():
+                st.markdown('<div class="premium-container">', unsafe_allow_html=True)
+                
+                # Enhanced header with visual hierarchy
+                st.markdown(f"""
+                    <div class="header-section">
+                        <div>
+                            <h2 style="margin:0; color:{COLORS['indigo_dye']}; font-size:1.5rem;">
+                                {selected_thematic} Projects Overview : 
+                            </h2>
+                            <span class="title-badge">Thematic Area Analysis</span>
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                # Removed metrics grid to reduce redundancy and improve clarity
+                
+                # Add dynamic table styling
+                st.markdown("""
+                    <style>
+                    [data-testid="stDataFrame"] {
+                        min-height: 200px;
+                        max-height: 600px;
+                    }
+                    [data-testid="stDataFrame"] > div {
+                        transition: all 0.3s ease;
+                    }
+                    [data-testid="stDataFrame"] [data-testid="stTable"] {
+                        height: auto !important;
+                    }
+                    .table-info {
+                        color: #6B7280;
+                        font-size: 0.875rem;
+                        margin-bottom: 0.5rem;
+                        display: flex;
+                        align-items: center;
+                        gap: 0.5rem;
+                    }
+                    </style>
+                """, unsafe_allow_html=True)
+
+                # Calculate dynamic height based on number of rows
+                min_height = 200
+                max_height = 600
+                rows_per_page = 10
+                calculated_height = min(max(min_height, len(projects_df) * 35), max_height)
+
+                # Show table info
+                st.markdown(
+                    f'<div class="table-info">📑 Showing {len(projects_df)} projects</div>',
+                    unsafe_allow_html=True
+                )
+
+                # Enhanced interactive project table with dynamic height
+                st.dataframe(
+                    projects_df,
+                    use_container_width=True,
+                    column_config={
+                        "Project name": st.column_config.TextColumn(
+                            "Project Name",
+                            help="Name of the project",
+                            width="large",
+                        ),
+                        "Team size": st.column_config.NumberColumn(
+                            "Team Size",
+                            help="Number of team members",
+                            format="%d 👥",
+                            min_value=0,
+                            max_value=50,
+                        ),
+                        "Project last update": st.column_config.DateColumn(
+                            "Last Update",
+                            help="Most recent update date",
+                            format="MMM DD, YYYY",
+                        ),
+                        "Current step name": st.column_config.TextColumn(
+                            "Current Step",
+                            help="Current project stage",
+                            width="medium",
+                        )
+                    },
+                    height=calculated_height
+                )
+                
+                # Enhanced export section with actions
+                st.markdown("""
+                    <div style="border-top: 1px solid #e5e7eb; margin-top: 1rem; padding-top: 1rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="color: #6B7280; font-size: 0.875rem;">
+                                Export options for detailed analysis
+                            </div>
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                col1, col2, col3 = st.columns([2, 2, 2])
+                with col2:
+                    csv = projects_df.to_csv(index=False)
+                    st.download_button(
+                        "📥 Export to Excel Format",
+                        csv,
+                        f"{selected_thematic}_Projects_{pd.Timestamp.now().strftime('%Y%m%d')}.csv",
+                        "text/csv",
+                        key='download_csv',
+                        use_container_width=True,
+                    )
+                
+                st.markdown('</div>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+        
         st.markdown("---")
 
     if "Top TOD Advisors" in selected_charts:
         # Top TOD Advisors
         advisor_data = filtered_df["TOD Advisor"].dropna()
-        top_advisors = advisor_data.value_counts().nlargest(5).reset_index()
+        top_advisors = advisor_data.value_counts().nlargest(10).reset_index()
         top_advisors.columns = ["Advisor", "Project Count"]
 
         with st.container():
             st.markdown('<div class="chart-title">Top TOD Advisors</div>', unsafe_allow_html=True)
-            st.markdown('<div class="chart-subtitle">By number of supported projects (Top 5)</div>', unsafe_allow_html=True)
+            st.markdown('<div class="chart-subtitle">By number of supported projects (Top 10)</div>', unsafe_allow_html=True)
 
             fig = go.Figure(go.Bar(
                 x=top_advisors["Project Count"],
@@ -670,7 +901,7 @@ with tab1:
             ))
 
             fig.update_layout(
-                height=350,
+                height=500,  # Increased height to accommodate more entries
                 margin=dict(l=50, r=30, t=20, b=50),
                 plot_bgcolor='white',
                 paper_bgcolor='white',
@@ -1164,7 +1395,7 @@ with tab2:
         COLORS['bondi_blue'], COLORS['cerulean'], COLORS['lapis_lazuli']
     ]
     
-    # Add traces for ALL steps in the predefined order
+    # Add traces for ALL steps in the predefined order with integrated risk assessment
     for i, step_name in enumerate(display_names):
         # Check if we have data for this step
         step_has_data = not duration_df.empty and (duration_df['Step'] == step_name).any()
@@ -1172,17 +1403,29 @@ with tab2:
         if step_has_data:
             step_data = duration_df[duration_df['Step'] == step_name]
             
-            # Add box plot with real data
+            # Calculate risk metrics for this step
+            avg_duration = step_data["Duration (days)"].mean()
+            risk_level = "Low" if avg_duration <= 30 else "Moderate" if avg_duration <= 60 else "High" if avg_duration <= 90 else "Critical"
+            risk_colors = {"Low": "#10B981", "Moderate": "#F59E0B", "High": "#F97316", "Critical": "#DC2626"}
+            
+            # Add box plot with real data and risk-based coloring
             fig.add_trace(go.Box(
                 y=step_data["Duration (days)"],
                 name=step_name,
-                marker_color=color_sequence[i % len(color_sequence)],
+                marker_color=risk_colors[risk_level],
                 boxmean=False,
                 line=dict(width=2),
                 boxpoints='outliers',
-                fillcolor=color_sequence[i % len(color_sequence)],
+                fillcolor=risk_colors[risk_level],
                 opacity=0.7,
-                width=0.4
+                width=0.4,
+                hovertemplate=(
+                    f"<b>{step_name}</b><br>" +
+                    "Duration: %{y} days<br>" +
+                    f"Average: {avg_duration:.1f} days<br>" +
+                    f"Risk Level: {risk_level}<br>" +
+                    "<extra></extra>"
+                )
             ))
             
             # Add average marker
@@ -1211,10 +1454,30 @@ with tab2:
                 width=0.4
             ))
 
-    # Update layout to force all steps to appear in correct order
+    # Calculate overall risk metrics
+    stage_risk_metrics = {}
+    for step_name in display_names:
+        if step_name in duration_df['Step'].values:
+            step_data = duration_df[duration_df['Step'] == step_name]
+            avg_duration = step_data["Duration (days)"].mean()
+            risk_level = "Low" if avg_duration <= 30 else "Moderate" if avg_duration <= 60 else "High" if avg_duration <= 90 else "Critical"
+            stage_risk_metrics[step_name] = {
+                'avg_duration': avg_duration,
+                'risk_level': risk_level
+            }
+    
+    # Calculate portfolio risk score
+    risk_weights = {"Low": 0, "Moderate": 10, "High": 20, "Critical": 40}
+    total_risk_score = 100
+    if stage_risk_metrics:
+        deductions = sum(risk_weights[metrics['risk_level']] for metrics in stage_risk_metrics.values())
+        total_risk_score = max(0, 100 - (deductions / len(stage_risk_metrics)))
+    
+    # Update layout with integrated risk assessment
     fig.update_layout(
         title={
-            'text': f"<b>Stage Duration - {chosen} Projects</b>",
+            'text': f"<b>Stage Duration & Risk Analysis - {chosen} Projects</b><br>" +
+                   f"<span style='font-size:16px'>Portfolio Health Score: {total_risk_score:.0f}/100</span>",
             'y': 0.95,
             'x': 0.5,
             'xanchor': 'center',
@@ -1222,21 +1485,37 @@ with tab2:
             'font': dict(size=22, color=COLORS['indigo_dye'])
         },
         xaxis=dict(
-            title="Steps",
+            title="Process Steps",
             categoryorder='array',
-            categoryarray=display_names,  # This forces ALL steps to appear in order
+            categoryarray=display_names,
             tickangle=-45,
             tickfont=dict(size=12)
         ),
         yaxis=dict(
-            title="Days to Complete",
+            title="Stage Duration (days)",
             gridcolor="#f3f4f6",
             title_font=dict(size=16)),
         plot_bgcolor='white',
         paper_bgcolor='white',
-        margin=dict(t=100, b=150, l=50, r=50),
+        margin=dict(t=120, b=150, l=50, r=50),
         height=600,
-        showlegend=False
+        showlegend=False,
+        annotations=[
+            dict(
+                x=1.0,
+                y=1.05,
+                xref='paper',
+                yref='paper',
+                text=f"Risk Levels: " +
+                     "🟢 Low (≤30d) | " +
+                     "🟡 Moderate (31-60d) | " +
+                     "🟠 High (61-90d) | " +
+                     "🔴 Critical (>90d)",
+                showarrow=False,
+                font=dict(size=12),
+                align='right'
+            )
+        ]
     )
 
     # Add explanatory note if no data exists
@@ -1250,87 +1529,338 @@ with tab2:
 
     st.plotly_chart(fig, use_container_width=True)
     
+    # Display integrated insights
+    if not duration_df.empty:
+        # Identify bottlenecks and risks
+        high_risk_stages = [
+            stage for stage, metrics in stage_risk_metrics.items()
+            if metrics['risk_level'] in ['High', 'Critical']
+        ]
+        
+        longest_stage = max(stage_risk_metrics.items(), key=lambda x: x[1]['avg_duration'])
+        shortest_stage = min(stage_risk_metrics.items(), key=lambda x: x[1]['avg_duration'])
+        
+        # Create insight cards
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            status_color = "#10B981" if total_risk_score >= 85 else "#F59E0B" if total_risk_score >= 70 else "#DC2626"
+            st.markdown(f"""
+            <div style='background-color: {status_color}15; border-left: 5px solid {status_color}; padding: 15px; border-radius: 5px;'>
+                <h4 style='margin:0; color: {status_color}'>Process Health Summary</h4>
+                <p style='margin:10px 0'>
+                    <strong>Duration Insights:</strong><br>
+                    • Longest stage: {longest_stage[0]} ({longest_stage[1]['avg_duration']:.1f} days)<br>
+                    • Shortest stage: {shortest_stage[0]} ({shortest_stage[1]['avg_duration']:.1f} days)
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+        with col2:
+            if high_risk_stages:
+                st.markdown(f"""
+                <div style='background-color: #DC262615; border-left: 5px solid #DC2626; padding: 15px; border-radius: 5px;'>
+                    <h4 style='margin:0; color: #DC2626'>Risk Areas</h4>
+                    <p style='margin:10px 0'>
+                        <strong>High-Risk Stages:</strong><br>
+                        {'<br>'.join(f"• {stage}" for stage in high_risk_stages)}
+                    </p>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                <div style='background-color: #10B98115; border-left: 5px solid #10B981; padding: 15px; border-radius: 5px;'>
+                    <h4 style='margin:0; color: #10B981'>Risk Areas</h4>
+                    <p style='margin:10px 0'>✅ No high-risk stages identified</p>
+                </div>
+                """, unsafe_allow_html=True)
+    
     # ── 8) Executive Risk Intelligence (BCG-Grade) ──
     now = pd.Timestamp.now()
-    st.markdown("### ⚠️ Risk Intelligence Dashboard")
+    st.markdown("### Risk Intelligence Dashboard")
+    # Clear explanation of risk assessment methodology
+    with st.expander("ℹ️ Understanding Risk Assessment Methodology", expanded=False):
+        st.markdown("#### How Project Risk is Assessed")
+        st.markdown("Risk is determined by the number of days since a project's last update. This helps identify projects that are stalled or require attention.")
+
+        # Define risk levels with colors and descriptions
+        risk_levels = {
+            "Active": {
+                "icon": "🟢", "color": "#10B981", "timeframe": "< 30 days",
+                "meaning": "Project is on track and progressing as expected."
+            },
+            "Watch": {
+                "icon": "🟡", "color": "#F59E0B", "timeframe": "31-60 days",
+                "meaning": "Early warning signs of stalling. Requires monitoring."
+            },
+            "Action Required": {
+                "icon": "🟠", "color": "#F97316", "timeframe": "61-90 days",
+                "meaning": "Significant inactivity. Intervention is needed to prevent failure."
+            },
+            "Critical": {
+                "icon": "🔴", "color": "#DC2626", "timeframe": "> 90 days",
+                "meaning": "Severe stagnation. Immediate escalation and action are required."
+            }
+        }
+
+        # Display risk levels in a visually appealing way
+        cols = st.columns(4)
+        for i, (status, details) in enumerate(risk_levels.items()):
+            with cols[i]:
+                st.markdown(f"""
+                <div style="border: 1px solid {details['color']}; border-left: 5px solid {details['color']}; 
+                             border-radius: 5px; padding: 15px; height: 180px; background-color: {details['color']}10;">
+                    <h5 style="margin:0; color:{details['color']};">{details['icon']} {status}</h5>
+                    <p style="font-size:0.9rem; margin-top:5px;"><strong>Timeframe:</strong> {details['timeframe']}</p>
+                    <p style="font-size:0.85rem; color:#4A5568;">{details['meaning']}</p>
+                </div>
+                """, unsafe_allow_html=True)
+
+        st.markdown("---")
+        st.markdown("#### How the Portfolio Health Score is Calculated")
+        
+        col1, col2 = st.columns([2, 1.5])
+        
+        with col1:
+            st.markdown("""
+            The score provides a single metric for the overall health of the project portfolio, calculated on a 100-point scale.
+            
+            **Formula:**
+            `Score = 100 - (Total Weighted Deductions / Number of Projects)`
+            
+            A higher score indicates a healthier portfolio with fewer at-risk projects.
+            """)
+
+        with col2:
+            st.markdown("""
+            **Point Deductions per Project:**
+            - <span style="color:#DC2626">**Critical:**</span> -40 points
+            
+        """)
     
     if "Current step name" in df_stage.columns:
+        # Prepare risk analysis data
         risk_df = df_stage.copy()
         risk_df["StepNameShort"] = risk_df["Current step name"].str.split("|").str[-1].str.strip()
-        
-        # Filter to only include steps in our sequence
         current_display_names = [x.split("|")[-1].strip() for x in iter_labels]
         risk_df = risk_df[risk_df["StepNameShort"].isin(current_display_names)]
         
-        # Calculate days since last update
+        # Calculate key risk metrics
         risk_df["Days_Since_Update"] = (now - risk_df["Project last update"]).dt.days
-        
-        # BCG Risk Classification (Clear, Actionable Categories)
-        risk_df["Risk_Category"] = pd.cut(
+        risk_df["Status"] = pd.cut(
             risk_df["Days_Since_Update"],
-            bins=[0, 30, 60, 90, float('inf')],
-            labels=['Active', 'Watch', 'Action Required', 'Critical'],
-            include_lowest=True
+            bins=[-float('inf'), 30, 60, 90, float('inf')],
+            labels=['Active', 'Watch', 'Action Needed', 'Critical']
         )
         
-        # === EXECUTIVE SUMMARY (Top-line insights) ===
+        # Calculate days since last update with more detail
+        risk_df["Days_Since_Update"] = (now - risk_df["Project last update"]).dt.days
+        risk_df["Last_Update_Date"] = risk_df["Project last update"].dt.strftime("%Y-%m-%d")
+        
+        # Enhanced BCG Risk Classification
+        def get_risk_category(days):
+            if pd.isna(days):
+                return "Data Missing"
+            elif days <= 30:
+                return "Active"
+            elif days <= 60:
+                return "Watch"
+            elif days <= 90:
+                return "Action Required"
+            else:
+                return "Critical"
+        
+        risk_df["Risk_Category"] = risk_df["Days_Since_Update"].apply(get_risk_category)
+        
+        # Calculate portfolio health metrics
+        status_counts = risk_df["Status"].value_counts()
         total_projects = len(risk_df)
-        critical_projects = (risk_df["Days_Since_Update"] >= 90).sum()
-        action_required = ((risk_df["Days_Since_Update"] >= 60) & (risk_df["Days_Since_Update"] < 90)).sum()
-        watch_list = ((risk_df["Days_Since_Update"] >= 30) & (risk_df["Days_Since_Update"] < 60)).sum()
         
-        # Portfolio Risk Score (0-100, where 100 = all projects active)
-        risk_score = max(0, 100 - ((critical_projects * 40 + action_required * 20 + watch_list * 10) / total_projects))
+        # Key metrics
+        active_projects = status_counts.get("Active", 0)
+        watch_list = status_counts.get("Watch", 0)
+        action_needed = status_counts.get("Action Needed", 0)
+        critical_projects = status_counts.get("Critical", 0)
         
-        # Risk Status Determination
+        # Portfolio risk score calculation
+        risk_score = 100 - (
+            (critical_projects * 40 + action_needed * 20 + watch_list * 10) / 
+            max(total_projects, 1)
+        )
+        
+        # Portfolio health assessment
         if risk_score >= 85:
-            risk_status = "🟢 LOW RISK"
-            risk_color = "#10B981"
+            status = "🟢 HEALTHY"
+            color = "#10B981"
+            message = "Portfolio is performing well"
         elif risk_score >= 70:
-            risk_status = "🟡 MODERATE RISK"
-            risk_color = "#F59E0B"
+            status = "🟡 ATTENTION NEEDED"
+            color = "#F59E0B"
+            message = "Some projects require monitoring"
         elif risk_score >= 50:
-            risk_status = "🟠 HIGH RISK"
-            risk_color = "#F97316"
+            status = "� AT RISK"
+            color = "#F97316"
+            message = "Significant intervention required"
         else:
-            risk_status = "🔴 CRITICAL RISK"
-            risk_color = "#DC2626"
-        
-        # Executive Summary Card
+            status = "� CRITICAL"
+            color = "#DC2626"
+            message = "Immediate action needed"
+            
+        # Display executive summary
+        # Convert hex color to rgba with 0.08 opacity for background
+        def hex_to_rgba(hex_color, opacity=0.08):
+            hex_color = hex_color.lstrip('#')
+            lv = len(hex_color)
+            rgb = tuple(int(hex_color[i:i + lv // 3], 16) for i in range(0, lv, lv // 3))
+            return f"rgba({rgb[0]}, {rgb[1]}, {rgb[2]}, {opacity})"
+        bg_rgba = hex_to_rgba(color, 0.08)
         st.markdown(f"""
-        <div style="background: linear-gradient(135deg, {risk_color}15, {risk_color}05); 
-                    border-left: 5px solid {risk_color}; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-            <h3 style="margin: 0; color: {risk_color}; font-size: 24px;">{risk_status}</h3>
-            <p style="margin: 5px 0 0 0; font-size: 16px; color: #374151;">
-                Portfolio Risk Score: <strong>{risk_score:.0f}/100</strong> | 
-                {critical_projects} Critical | {action_required} Action Required | {watch_list} Watch List
-            </p>
-        </div>
+            <div style="background-color: {bg_rgba}; border-left: 5px solid {color}; 
+                padding: 20px; border-radius: 5px; margin-bottom: 20px;">
+                <h2 style='margin:0; color: {color}'>{status}</h2>
+                <h3 style='margin:10px 0'>Portfolio Health: {risk_score:.0f}/100</h3>
+                <p style='margin:0'>{message}</p>
+            </div>
         """, unsafe_allow_html=True)
         
-        # === CRITICAL INSIGHT: BOTTLENECK ANALYSIS ===
-        if critical_projects > 0 or action_required > 0:
-            st.markdown("#### 🎯 **Primary Risk Driver**")
+        # Key metrics in two rows
+        st.markdown("#### Portfolio Overview")
+        
+        # First row: Active vs At-Risk
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.metric(
+                "🟢 Healthy Projects",
+                active_projects,
+                f"{(active_projects/total_projects*100):.0f}% of portfolio",
+                help="Projects with updates in last 30 days"
+            )
+        
+        with col2:
+            at_risk = watch_list + action_needed + critical_projects
+            st.metric(
+                "⚠️ Projects Needing Attention",
+                at_risk,
+                f"{(at_risk/total_projects*100):.0f}% of portfolio",
+                help="Projects requiring monitoring or intervention",
+                delta_color="inverse"
+            )
+        
+        # Risk breakdown visualization
+        st.markdown("#### Risk Distribution")
+        
+        # Prepare data for visualization
+        risk_data = pd.DataFrame({
+            'Status': ['Critical', 'Action Needed', 'Watch', 'Active'],
+            'Count': [critical_projects, action_needed, watch_list, active_projects],
+            'Color': ['#DC2626', '#F97316', '#F59E0B', '#10B981']
+        })
+        
+        # Create horizontal bar chart
+        fig = go.Figure()
+        
+        for idx, row in risk_data.iterrows():
+            # Get project names for this status
+            projects = risk_df[risk_df['Status'] == row['Status']]['Project name'].tolist()
+            project_list = "<br>".join(projects) if projects else "No projects"
             
-            # Identify the step with highest concentration of at-risk projects
-            at_risk_by_step = risk_df[risk_df["Days_Since_Update"] >= 60].groupby("StepNameShort").size().sort_values(ascending=False)
+            fig.add_trace(go.Bar(
+                y=[row['Status']],
+                x=[row['Count']],
+                orientation='h',
+                name=row['Status'],
+                marker_color=row['Color'],
+                hovertemplate=f"<b>{row['Status']}</b><br>Count: {row['Count']}<br><br>Projects:<br>{project_list}<extra></extra>",
+                text=[f"{row['Count']} ({row['Count']/total_projects*100:.0f}%)"],
+                textposition='auto',
+            ))
+        
+        fig.update_layout(
+            barmode='stack',
+            height=200,
+            showlegend=False,
+            margin=dict(l=0, r=0, t=0, b=0),
+            plot_bgcolor='white',
+            paper_bgcolor='white',
+            xaxis_title="Number of Projects",
+            yaxis=dict(categoryorder='array', categoryarray=risk_data['Status'])
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Action items section
+        if critical_projects > 0 or action_needed > 0:
+            st.markdown("#### 🎯 Priority Actions")
             
-            if not at_risk_by_step.empty:
-                primary_bottleneck = at_risk_by_step.index[0]
-                bottleneck_count = at_risk_by_step.iloc[0]
-                total_in_step = risk_df[risk_df["StepNameShort"] == primary_bottleneck].shape[0]
-                bottleneck_rate = (bottleneck_count / total_in_step * 100)
+            # Calculate most critical stage
+            stage_risk = risk_df[risk_df['Status'].isin(['Critical', 'Action Needed'])].groupby('StepNameShort').size()
+            if not stage_risk.empty:
+                critical_stage = stage_risk.idxmax()
+                critical_count = stage_risk.max()
                 
-                col1, col2, col3 = st.columns([2, 1, 1])
+                st.error(f"""
+                **Highest Risk Area: {critical_stage}**
+                - {critical_count} projects requiring immediate attention
+                - Recommend process review and intervention
+                """)
+            
+            # Calculate risk metrics by step
+            risk_by_step = risk_df.groupby("StepNameShort").agg({
+                "Days_Since_Update": ["count", "mean", "max"],
+                "Risk_Category": lambda x: (x != "Active").sum()
+            }).round(1)
+            
+            risk_by_step.columns = ["Total Projects", "Avg Days Stalled", "Max Days Stalled", "At-Risk Projects"]
+            
+            # Calculate risk rates
+            risk_by_step["Risk Rate %"] = (risk_by_step["At-Risk Projects"] / risk_by_step["Total Projects"] * 100).round(1)
+            
+            # Identify primary bottleneck
+            bottleneck_steps = risk_by_step[risk_by_step["Risk Rate %"] > 40].sort_values("Risk Rate %", ascending=False)
+            
+            if not bottleneck_steps.empty:
+                primary_bottleneck = bottleneck_steps.index[0]
+                bottleneck_metrics = bottleneck_steps.iloc[0]
+                
+                # Display bottleneck warning
+                st.error(f"""
+                🚨 **Critical Bottleneck Detected: {primary_bottleneck}**
+                - {bottleneck_metrics['At-Risk Projects']} of {bottleneck_metrics['Total Projects']} projects at risk
+                - {bottleneck_metrics['Risk Rate %']}% risk rate
+                - Average stall time: {bottleneck_metrics['Avg Days Stalled']:.0f} days
+                """)
+                
+                # Detailed metrics
+                col1, col2, col3 = st.columns([1, 1, 1])
                 with col1:
-                    st.error(f"**{primary_bottleneck}** step has {bottleneck_count} at-risk projects ({bottleneck_rate:.0f}% of step)")
+                    st.metric(
+                        "Affected Projects",
+                        bottleneck_metrics["At-Risk Projects"],
+                        help="Number of projects at risk in this stage"
+                    )
                 with col2:
-                    st.metric("At-Risk Projects", bottleneck_count, help="Projects requiring immediate attention")
+                    st.metric(
+                        "Risk Rate",
+                        f"{bottleneck_metrics['Risk Rate %']}%",
+                        help="Percentage of projects at risk in this stage"
+                    )
                 with col3:
-                    st.metric("Risk Rate", f"{bottleneck_rate:.0f}%", help="Percentage of projects at risk in this step")
+                    st.metric(
+                        "Avg. Stall Time",
+                        f"{bottleneck_metrics['Avg Days Stalled']:.0f}d",
+                        help="Average days since last update"
+                    )
+                
+                # Show detailed stage analysis
+                with st.expander("📊 View Complete Stage Analysis"):
+                    st.dataframe(
+                        risk_by_step.style.background_gradient(subset=["Risk Rate %"], cmap="YlOrRd"),
+                        use_container_width=True
+                    )
         
         # === ACTIONABLE VISUALIZATION (Single, Clear Chart) ===
-        st.markdown("#### 📊 Risk Distribution by Stage")
+        st.markdown("####  Risk Distribution by Stage")
         
         # Create a focused risk heatmap showing only Action Required and Critical
         risk_pivot = risk_df.groupby(['StepNameShort', 'Risk_Category']).size().unstack(fill_value=0)
@@ -1413,28 +1943,38 @@ with tab2:
             
             recommendations = []
             
-            # Data-driven recommendations
+            # Focused recommendations
             if critical_projects > 0:
-                recommendations.append(f"**Week 1**: Escalate {critical_projects} critical projects to stakeholders")
-            
-            if action_required > 0:
-                recommendations.append(f"**Week 2**: Implement check-ins for {action_required} stalled projects")
-            
-            if bottleneck_rate > 40:  # If any step has >40% at-risk rate
-                recommendations.append(f"**Month 1**: Process review for {primary_bottleneck} stage")
+                st.markdown(f"""
+                **Immediate Actions Required:**
+                1. Schedule review meetings for {critical_projects} critical projects
+                2. Implement daily progress tracking
+                3. Escalate to relevant stakeholders
+                """)
             
             if risk_score < 70:
-                recommendations.append("**Ongoing**: Weekly portfolio risk reviews until score >70")
+                st.markdown("""
+                **Strategic Improvements:**
+                1. Review resource allocation
+                2. Strengthen progress monitoring
+                3. Implement weekly status checks
+                """)
             
-            # Display recommendations or success message
+            # Display recommendations with improved formatting
             if recommendations:
+                st.markdown("##### Prioritized Action Items:")
                 for i, rec in enumerate(recommendations, 1):
                     st.markdown(f"{i}. {rec}")
             else:
-                st.info("**Portfolio Status: Healthy**\n\nContinue current monitoring practices.")
+                st.success("""
+                ✅ **Portfolio Status: Healthy**
+                - All projects are progressing normally
+                - Continue current monitoring practices
+                - Maintain regular status updates
+                """)
             
             # Quick Export for Manager
-            if critical_projects > 0 or action_required > 0:
+            if critical_projects > 0 or action_needed > 0:
                 at_risk_export = risk_df[risk_df["Days_Since_Update"] >= 60][
                     ["Project name", "StepNameShort", "Days_Since_Update", "Risk_Category"]
                 ].copy()
