@@ -379,7 +379,7 @@ st.markdown(f"""
         margin-bottom: 2rem;
     }}
 
-    .metric-box {{
+    .kpi-metric-box {{
         background: white;
         border-radius: 16px;
         padding: 1.5rem;
@@ -388,20 +388,21 @@ st.markdown(f"""
         border: 1px solid #e5e7eb;
         font-size: 20px;
         transition: transform 0.2s;
+        margin-bottom: 1.5rem;
     }}
 
-    .metric-box:hover {{
+    .kpi-metric-box:hover {{
         transform: scale(1.02);
     }}
 
-    .metric-title {{
+    .kpi-metric-title {{
         font-size: 16px;
         font-weight: 500;
         color: {COLORS['lapis_lazuli']};
         margin-bottom: 0.25rem;
     }}
 
-    .metric-value {{
+    .kpi-metric-value {{
         font-size: 32px;
         font-weight: 700;
         color: {COLORS['indigo_dye']};
@@ -415,8 +416,8 @@ st.markdown(f"""
         margin-bottom: 2rem;
     }}
     .chart-title {{
-        font-size: 20px;
-        font-weight: bold;
+        font-size: 24px;
+        font-weight: 700;
         color: {COLORS['indigo_dye']};
     }}
     .chart-subtitle {{
@@ -474,29 +475,137 @@ st.markdown('<div class="title-header"> Le Mouvement Dashboard</div>', unsafe_al
 st.markdown('<div class="sub-header">A real-time visual overview of intrapreneurial projects led within OCP\'s innovation ecosystem.</div>', unsafe_allow_html=True)
 
 # ────────────────────── MAIN CONTENT TABS ────────────────────── #
-tab1, tab2, tab3 = st.tabs(["📊 Overview Dashboard", "📈 Stages Analysis", "🧹 Data Quality"])
+st.markdown("""
+    <style>
+    /* Use very specific class names to avoid conflicts */
+    .main-dashboard-tabs .stTabs [data-baseweb="tab-list"] {
+        gap: 24px;
+        position: relative;
+        background: linear-gradient(to right, #f8f9fa, #ffffff);
+        border-radius: 12px 12px 0 0;
+        padding: 8px 16px 0 16px;
+        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.03);
+        border: 1px solid #f1f5f9;
+        border-bottom: none;
+    }
+    
+    /* Custom tab styling */
+    .main-dashboard-tabs .stTabs [data-baseweb="tab"] {
+        height: 54px;
+        font-size: 17px;
+        font-weight: 800;
+        padding: 5px 32px;
+        border-radius: 12px 12px 0 0;
+        background: transparent;
+        min-width: 170px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        z-index: 1;
+        overflow: hidden;
+        border: none;
+    }
+    
+    /* Active tab styling with fancy bottom indicator */
+    .main-dashboard-tabs .stTabs [aria-selected="true"] {
+        font-weight: 900;
+        background: white;
+        color: #1e3a8a;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    }
+    
+    /* Fancy animated bottom indicator */
+    .main-dashboard-tabs .stTabs [aria-selected="true"]::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 10%;
+        width: 80%;
+        height: 4px;
+        background: linear-gradient(90deg, #1e3a8a, #3b82f6);
+        border-radius: 4px 4px 0 0;
+        animation: slideIn 0.3s forwards cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+    
+    /* Hover effect for inactive tabs */
+    .main-dashboard-tabs .stTabs [data-baseweb="tab"]:hover:not([aria-selected="true"]) {
+        background: rgba(255, 255, 255, 0.7);
+        transform: translateY(-2px);
+    }
+    
+    /* Tab content area styling */
+    .main-dashboard-tabs .stTabs [data-baseweb="tab-panel"] {
+        background: white;
+        border-radius: 0 0 12px 12px;
+        padding: 20px;
+        border: 1px solid #f1f5f9;
+        border-top: none;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.03);
+    }
+    
+    /* Animation for the sliding indicator */
+    @keyframes slideIn {
+        0% { width: 0; left: 50%; }
+        100% { width: 80%; left: 10%; }
+    }
+    
+    /* Tab icons styling */
+    .main-dashboard-tabs .stTabs [data-baseweb="tab"] span {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    /* Pulse animation for the active tab */
+    .main-dashboard-tabs .stTabs [aria-selected="true"] {
+        animation: pulse 2s infinite;
+        animation-delay: 0.5s;
+    }
+    
+    @keyframes pulse {
+        0% { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); }
+        50% { box-shadow: 0 4px 20px rgba(59, 130, 246, 0.15); }
+        100% { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); }
+    }
+    </style>
+
+    <!-- Add the specific class to the tabs container -->
+    <div class="main-dashboard-tabs">
+""", unsafe_allow_html=True)
+
+# Create the tabs with enhanced styling and icons
+tab1, tab2, tab3 = st.tabs([
+    "📊 **Overview Dashboard**", 
+    "📈 **Stages Analysis**", 
+    "🧹 **Data Quality**"
+])
+
+# Close the specific div container
+st.markdown("</div>", unsafe_allow_html=True)
 
 with tab1:
     # ────────────────────── KPI SECTION ────────────────────── #
     st.markdown("###  Key Performance Indicators")
     
     # Add data quality indicators
-    col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
+    col1, col2, col3 = st.columns([1, 1, 1])
 
     with col1:
         st.markdown(f"""
-            <div class="metric-box">
-                <div class="metric-title">Total Projects</div>
-                <div class="metric-value">{filtered_df.shape[0]}</div>
+            <div class="kpi-metric-box">
+                <div class="kpi-metric-title">Total Projects</div>
+                <div class="kpi-metric-value">{filtered_df.shape[0]}</div>
             </div>
         """, unsafe_allow_html=True)
 
     with col2:
         last_update = filtered_df["Project last update"].max()
         st.markdown(f"""
-            <div class="metric-box">
-                <div class="metric-title">Last Update</div>
-                <div class="metric-value">{pd.to_datetime(last_update).date()}</div>
+            <div class="kpi-metric-box">
+                <div class="kpi-metric-title">Last Update</div>
+                <div class="kpi-metric-value">{pd.to_datetime(last_update).date()}</div>
             </div>
         """, unsafe_allow_html=True)
 
@@ -504,20 +613,9 @@ with tab1:
         inactive_cutoff = pd.Timestamp.now() - pd.Timedelta(days=60)
         inactive_projects = filtered_df[filtered_df["Project last update"] < inactive_cutoff]
         st.markdown(f"""
-            <div class="metric-box">
-                <div class="metric-title">Inactive Projects (60+ days)</div>
-                <div class="metric-value">⏳ {inactive_projects.shape[0]}</div>
-            </div>
-        """, unsafe_allow_html=True)
-        
-    with col4:
-        # Data completeness indicator
-        step_completeness = filtered_df["Current step name"].notna().mean() * 100
-        color = "🟢" if step_completeness > 90 else "🟡" if step_completeness > 70 else "🔴"
-        st.markdown(f"""
-            <div class="metric-box">
-                <div class="metric-title">Data Completeness</div>
-                <div class="metric-value">{color} {step_completeness:.1f}%</div>
+            <div class="kpi-metric-box">
+                <div class="kpi-metric-title">Inactive Projects (60+ days)</div>
+                <div class="kpi-metric-value">⏳ {inactive_projects.shape[0]}</div>
             </div>
         """, unsafe_allow_html=True)
 
@@ -528,51 +626,6 @@ with tab1:
     st.markdown("---")
 
     # ────────────────────── DYNAMIC CHARTS BASED ON SIDEBAR SELECTION ────────────────────── #
-
-    if "Projects by Step" in selected_charts:
-        # Section 1: Projects by Step (Radial Chart Style)
-        st.markdown('<div class="chart-title">Projects Distribution By Their Current Step</div>', unsafe_allow_html=True)
-
-        step_counts = filtered_df["Current step name"].value_counts().reset_index()
-        step_counts.columns = ["Step", "Count"]
-
-        # Use the color palette for the pie chart
-        pie_colors = [
-            COLORS['mindaro'], COLORS['light_green'], COLORS['light_green_2'], 
-            COLORS['emerald'], COLORS['keppel'], COLORS['verdigris'],
-            COLORS['bondi_blue'], COLORS['cerulean'], COLORS['lapis_lazuli'], 
-            COLORS['indigo_dye']
-        ]
-
-        fig = go.Figure(data=[go.Pie(
-            labels=step_counts["Step"],
-            values=step_counts["Count"],
-            hole=0.7,
-            marker=dict(
-                colors=pie_colors,
-                line=dict(color='white', width=2)
-            ),
-            textinfo='label+percent',
-            insidetextorientation='radial',
-        )])
-
-        fig.update_layout(
-            showlegend=True,
-            margin=dict(t=70, b=0, l=0, r=0),
-            height=400,
-            title={
-                'text': "",
-                'x': 0.5,
-                'xanchor': 'center',
-                'yanchor': 'top',
-                'font': dict(size=20)
-            },
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)'
-        )
-
-        st.plotly_chart(fig, use_container_width=True)
-        st.markdown("---")
     if "Projects by Thematic Area" in selected_charts:
         # Group and enrich data
         theme_projects = filtered_df.groupby("Thématique").agg({
@@ -880,6 +933,53 @@ with tab1:
         
         st.markdown("---")
 
+
+    if "Projects by Step" in selected_charts:
+        # Section 1: Projects by Step (Radial Chart Style)
+        st.markdown('<div class="chart-title">Projects Distribution By Current Step</div>', unsafe_allow_html=True)
+
+        step_counts = filtered_df["Current step name"].value_counts().reset_index()
+        step_counts.columns = ["Step", "Count"]
+
+        # Use the color palette for the pie chart
+        pie_colors = [
+            COLORS['mindaro'], COLORS['light_green'], COLORS['light_green_2'], 
+            COLORS['emerald'], COLORS['keppel'], COLORS['verdigris'],
+            COLORS['bondi_blue'], COLORS['cerulean'], COLORS['lapis_lazuli'], 
+            COLORS['indigo_dye']
+        ]
+
+        fig = go.Figure(data=[go.Pie(
+            labels=step_counts["Step"],
+            values=step_counts["Count"],
+            hole=0.7,
+            marker=dict(
+                colors=pie_colors,
+                line=dict(color='white', width=2)
+            ),
+            textinfo='label+percent',
+            insidetextorientation='radial',
+        )])
+
+        fig.update_layout(
+            showlegend=True,
+            margin=dict(t=70, b=0, l=0, r=0),
+            height=400,
+            title={
+                'text': "",
+                'x': 0.5,
+                'xanchor': 'center',
+                'yanchor': 'top',
+                'font': dict(size=20)
+            },
+            paper_bgcolor='white',
+            plot_bgcolor='white',
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+        st.markdown("---")
+
+
     if "Top TOD Advisors" in selected_charts:
         # Top TOD Advisors
         advisor_data = filtered_df["TOD Advisor"].dropna()
@@ -925,91 +1025,238 @@ with tab1:
         st.markdown("---")
 
     if "Team Size Distribution" in selected_charts:
-        # Team Size Distribution - Enhanced Version
-        st.markdown('<div class="chart-title">Team Size Distribution</div>', unsafe_allow_html=True)
-        st.markdown('<div class="chart-subtitle">Histogram with summary statistics</div>', unsafe_allow_html=True)
-
-        # Clean and convert team size column
-        filtered_df["Team Size"] = pd.to_numeric(filtered_df["Team size"], errors="coerce")
-        team_size_clean = filtered_df["Team Size"].dropna()
-
-        # Calculate statistics
-        avg_size = team_size_clean.mean().round(1)
-        median_size = team_size_clean.median()
-        mode_size = team_size_clean.mode().values[0]
-        min_size = team_size_clean.min()
-        max_size = team_size_clean.max()
-
-        # Create figure with dual axes
-        fig = go.Figure()
-
-        # Add histogram (primary axis)
-        fig.add_trace(
-            go.Histogram(
-                x=team_size_clean,
-                nbinsx=10,
-                name="Distribution",
-                marker_color=COLORS['verdigris'],
+        st.markdown('''
+            <div class="chart-title">
+                Team Size Distribution
+            </div>
+        ''', unsafe_allow_html=True)
+        st.markdown('<div class="chart-subtitle">Resource Allocation Analysis</div>', unsafe_allow_html=True)
+        
+        # Team size distribution with improved visualization and business context
+        team_size_clean = pd.to_numeric(filtered_df["Team size"], errors='coerce')
+        if not team_size_clean.empty:
+            # Calculate key statistics for business insights
+            avg_size = team_size_clean.mean()
+            median_size = team_size_clean.median()
+            resource_allocation = team_size_clean.sum()  # Total team members allocated                # Identify potential outliers and unusual distributions
+            # Identify potential outliers
+            outliers = team_size_clean[(team_size_clean > 20) | (team_size_clean < 1)]
+            has_outliers = len(outliers) > 0
+            
+            # Create multiple insights in a single row
+            insight_col1, insight_col2, insight_col3 = st.columns(3)
+            
+            # Add modern card styling
+            st.markdown("""
+                <style>
+                .metric-card {
+                    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+                    border-radius: 16px;
+                    padding: 20px;
+                    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+                    border: 1px solid rgba(226, 232, 240, 0.8);
+                    height: 100%;
+                    transition: all 0.3s ease;
+                    position: relative;
+                    overflow: hidden;
+                }
+                .metric-card:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+                }
+                .metric-card::before {
+                    content: '';
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 4px;
+                    background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
+                    opacity: 0;
+                    transition: opacity 0.3s ease;
+                }
+                .metric-card:hover::before {
+                    opacity: 1;
+                }
+                .metric-label {
+                    font-size: 14px;
+                    font-weight: 500;
+                    color: #64748b;
+                    letter-spacing: 0.01em;
+                    margin-bottom: 8px;
+                }
+                .metric-value {
+                    font-size: 32px;
+                    font-weight: 700;
+                    color: #1e293b;
+                    line-height: 1.2;
+                    margin-bottom: 4px;
+                    background: linear-gradient(90deg, #1e293b 0%, #334155 100%);
+                    -webkit-background-clip: text;
+                    -webkit-text-fill-color: transparent;
+                }
+                .metric-subtitle {
+                    font-size: 13px;
+                    color: #94a3b8;
+                    font-weight: 400;
+                }
+                @media (max-width: 768px) {
+                    .metric-card {
+                        padding: 16px;
+                    }
+                    .metric-value {
+                        font-size: 28px;
+                    }
+                }
+                </style>
+            """, unsafe_allow_html=True)
+            
+            with insight_col1:
+                st.markdown(f"""
+                <div class="metric-card">
+                    <div class="metric-label">Average Team Size</div>
+                    <div class="metric-value">{avg_size:.1f}</div>
+                    <div class="metric-subtitle">members per project</div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            with insight_col2:
+                st.markdown(f"""
+                <div class="metric-card">
+                    <div class="metric-label">Total Resource Allocation</div>
+                    <div class="metric-value">{resource_allocation:.0f}</div>
+                    <div class="metric-subtitle">team members across portfolio</div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            with insight_col3:
+                color = "#15803d" if not has_outliers else "#b91c1c"
+                status = "Normal Distribution" if not has_outliers else f"{len(outliers)} Potential Outliers"
+                bg_gradient = "90deg, #15803d 0%, #16a34a 100%" if not has_outliers else "90deg, #b91c1c 0%, #dc2626 100%"
+                
+                st.markdown(f"""
+                <style>
+                .metric-card-status .metric-value {{
+                    background: linear-gradient({bg_gradient});
+                    -webkit-background-clip: text;
+                    -webkit-text-fill-color: transparent;
+                }}
+                .metric-card-status::before {{
+                    background: linear-gradient({bg_gradient});
+                }}
+                </style>
+                <div class="metric-card metric-card-status">
+                    <div class="metric-label">Distribution Quality</div>
+                    <div class="metric-value">{status}</div>
+                    <div class="metric-subtitle">{len(team_size_clean.dropna())} projects analyzed</div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+            # Create an enhanced histogram with better executive insights
+            fig = px.histogram(
+                team_size_clean.dropna(),
+                nbins=15,
+                color_discrete_sequence=['#3b82f6'],
                 opacity=0.7,
-                hovertemplate="Team Size: %%{x}<br>Count: %%{y}<extra></extra>"
+                marginal="box",  # Add a box plot to show distribution
+                histnorm='percent',  # Show as percentage for better interpretation
+                labels={'value': 'Team Size', 'count': 'Percentage of Projects'},
             )
-        )
-
-        # Add box plot (secondary axis, invisible but shows quartiles)
-        fig.add_trace(
-            go.Box(
-                x=team_size_clean,
-                name="Box Plot",
-                line_color=COLORS['indigo_dye'],
-                hoverinfo="none",
-                showlegend=False
-            )
-        )
-
-        # Add vertical lines for stats
-        for stat, val, color in zip(
-            ["Mean", "Median", "Mode"],
-            [avg_size, median_size, mode_size],
-            [COLORS['emerald'], COLORS['bondi_blue'], COLORS['mindaro']]
-        ):
-            fig.add_vline(
-                x=val,
-                line_dash="dot",
-                line_color=color,
-                annotation_text=f"{stat}: {val}",
-                annotation_position="top",
-                annotation_font_size=12,
-                annotation_bgcolor="rgba(255,255,255,0.7)"
-            )
-
-        # Layout enhancements
-        fig.update_layout(
-            title="",
-            xaxis_title="Team Size",
-            yaxis_title="Number of Projects",
-            bargap=0.15,
-            plot_bgcolor="white",
-            paper_bgcolor="white",
-            margin=dict(l=40, r=30, t=20, b=60),
-            hovermode="x unified",
-            showlegend=False,
-            annotations=[
-                dict(
-                    x=0.95,
-                    y=0.7,
-                    xref="paper",
-                    yref="paper",
-                    text=f"<b>Stats Summary</b><br>Min: {min_size}<br>Max: {max_size}",
-                    showarrow=False,
-                    align="right",
-                    bgcolor="white",
-                    bordercolor=COLORS['lapis_lazuli'],
-                    borderwidth=1
-                )
+            
+            # Add mean and median lines with clear business context
+            fig.add_vline(x=avg_size, line_dash="dash", line_color="#f97316", 
+                         annotation=dict(
+                             text=f"Mean: {avg_size:.1f}",
+                             font=dict(color="#f97316", size=12),
+                             bgcolor="rgba(255,255,255,0.8)",
+                             borderpad=4
+                         ))
+                             
+            fig.add_vline(x=median_size, line_dash="dash", line_color="#0ea5e9", 
+                         annotation=dict(
+                             text=f"Median: {median_size:.0f}",
+                             font=dict(color="#0ea5e9", size=12),
+                             bgcolor="rgba(255,255,255,0.8)",
+                             borderpad=4
+                         ))
+            
+            # Add resource allocation bands with business context
+            team_size_ranges = [
+                (1, 3, "Small Teams", "rgba(34, 197, 94, 0.2)"),
+                (4, 8, "Medium Teams", "rgba(59, 130, 246, 0.2)"),
+                (9, 15, "Large Teams", "rgba(249, 115, 22, 0.2)"),
+                (16, max(team_size_clean.max(), 20), "Very Large Teams", "rgba(239, 68, 68, 0.2)")
             ]
-        )
-
-        st.plotly_chart(fig, use_container_width=True)
+            
+            for start, end, label, color in team_size_ranges:
+                fig.add_vrect(
+                    x0=start-0.5, x1=end+0.5,
+                    fillcolor=color,
+                    layer="below", line_width=0,
+                    annotation_text=label,
+                    annotation_position="top",
+                    annotation=dict(
+                        font=dict(size=10, color="#475569"),
+                        bgcolor="rgba(255,255,255,0.7)",
+                        borderpad=2
+                    )
+                )
+                
+            fig.update_layout(
+                title={
+                    'text': "Team Size Distribution Across Portfolio",
+                    'y': 0.95,
+                    'x': 0.5,
+                    'xanchor': 'center',
+                    'yanchor': 'top',
+                    'font': {'size': 16, 'color': '#1e3a8a', 'family': 'Arial'}
+                },
+                xaxis_title="Team Size (number of members)",
+                yaxis_title="Percentage of Projects",
+                height=420,
+                plot_bgcolor='white',
+                bargap=0.2,
+                margin=dict(l=40, r=20, t=80, b=40),
+                xaxis=dict(
+                    tickmode='linear',
+                    tick0=0,
+                    dtick=2,
+                ),
+                yaxis=dict(
+                    ticksuffix="%",
+                ),
+            )
+            
+            st.plotly_chart(fig, use_container_width=True, key="team_size_distribution")            # Add business insights based on the distribution
+            if has_outliers:
+                st.warning(f"⚠️ **Resource Allocation Anomalies**: {len(outliers)} projects have unusual team sizes that may indicate data quality issues or special project requirements. Consider validating these projects individually.", icon="⚠️")
+                
+                # Show the potential outliers in a neat table
+                if st.checkbox("Show Potential Team Size Anomalies"):
+                    outlier_indices = outliers.index.tolist()
+                    outlier_projects = filtered_df.loc[outlier_indices]
+                    
+                    if "Project name" in filtered_df.columns:
+                        outlier_info = outlier_projects[["Project name", "Team size"]].copy()
+                        outlier_info.columns = ["Project", "Team Size"]
+                        
+                        st.dataframe(
+                            outlier_info,
+                            use_container_width=True,
+                            hide_index=True,
+                            column_config={
+                                "Project": st.column_config.TextColumn("Project Name", width="large"),
+                                "Team Size": st.column_config.NumberColumn("Team Size", help="Number of team members assigned to this project")
+                            }
+                        )
+                    else:
+                        st.info("Project name column not found - cannot show detailed outlier information.")
+        else:
+            st.info("📋 Team size information not available in the dataset. Consider adding this field to improve resource allocation analysis.", icon="ℹ️")
+            
+    # ────────────────────── MENTORSHIP DISTRIBUTION ────────────────────── #
+    
+    st.markdown('---')
     if "Mentorship Distribution" in selected_charts:
         # Mentorship Data Preparation
         mentor_series = filtered_df["Accompagnement"].fillna("Not Mentored").replace("0", "Not Mentored")
@@ -1052,7 +1299,11 @@ with tab1:
         ]
 
         with st.container():
-            st.markdown('<div class="chart-title">Mentorship Distribution</div>', unsafe_allow_html=True)
+            st.markdown('''
+                <div class="chart-title">
+                    Mentorship Distribution
+                </div>
+            ''', unsafe_allow_html=True)
             st.markdown('<div class="chart-subtitle">As of {}</div>'.format(pd.Timestamp.now().date()), unsafe_allow_html=True)
 
             # Create pie chart with proper customdata
@@ -1131,12 +1382,6 @@ with tab1:
                 x=0.5,
                 font=dict(size=12, color=COLORS['lapis_lazuli'])
             ),
-            title=dict(
-                text="<b>Relative Share by Type de Situation</b>",
-                x=0.01,
-                xanchor='left',
-                font=dict(size=16, color=COLORS['indigo_dye'])
-            ),
             xaxis=dict(
                 title="Percentage",
                 ticksuffix="%",
@@ -1155,7 +1400,11 @@ with tab1:
         )
 
         # Display
-        st.markdown('<div class="chart-title"> Type de Situation Distribution (%)</div>', unsafe_allow_html=True)
+        st.markdown('''
+            <div class="chart-title">
+                Type de Situation Distribution (%)
+            </div>
+        ''', unsafe_allow_html=True)
         st.plotly_chart(fig, use_container_width=True)
 
     # ────────────────────── STAGES ANALYSIS TAB ──────────────────────
@@ -1341,7 +1590,7 @@ with tab2:
     )
 
     # ── 7) Project Health Command Center ──
-    st.markdown("### 🔍 Project Portfolio Health Analysis")
+    st.markdown("### Project Portfolio Health Analysis")
     
     # Explanation of the analysis
     with st.expander("ℹ️ Understanding Risk Assessment Methodology", expanded=False):
@@ -1587,7 +1836,7 @@ with tab2:
     st.plotly_chart(fig, use_container_width=True)
     
     if not duration_df.empty:
-        st.markdown("### 📊 Key Insights & Actions")
+        st.markdown("### Key Insights & Actions")
         
         # Calculate insights
         high_risk_stages = [
@@ -1631,12 +1880,12 @@ with tab2:
             
             with col1:
                 if high_risk_stages:
-                    st.error("🚨 **High Risk Stages Identified**  \n" + 
+                    st.error("**High Risk Stages Identified**  \n" + 
                             "\n".join([f"• {stage}" for stage in high_risk_stages]))
             
             with col2:
                 if bottleneck_stages:
-                    st.warning("⚠️ **Process Bottlenecks**  \n" + 
+                    st.warning(" **Process Bottlenecks**  \n" + 
                              "\n".join([f"• {stage}" for stage in bottleneck_stages]))
 
     # Only show the export option if we have data
@@ -1647,27 +1896,77 @@ with tab2:
         def create_risk_report():
             # Create summary dataframe
             risk_summary = []
+            project_details_list = []  # For detailed project listing
+            
+            # Include the project type (Business, OM, Ecosystem) in summary
+            current_project_type = chosen  # This is the selected project type
+            
             for stage, metrics in stage_risk_metrics.items():
                 stage_data = duration_df[duration_df['Step'] == stage]
-                risk_summary.append({
+                
+                # Create summary stats
+                stage_stats = {
+                    'Project Type': current_project_type,
                     'Stage': stage,
                     'Average Duration (days)': metrics['avg_duration'],
                     'Risk Level': metrics['risk_level'],
-                    'Projects Count': len(stage_data)
-                })
-            
-            return pd.DataFrame(risk_summary)
+                    'Projects Count': len(stage_data),
+                    'High Risk Projects': len(stage_data[stage_data['Duration (days)'] > 60])
+                }
+                risk_summary.append(stage_stats)
+
+                # Gather detailed project information
+                # First ensure stage_data has a Project ID column to use for merging
+                # We need to get the Project ID from the original DataFrame 
+                # by matching row indices from stage_data to original indices
+                
+                # Get project data directly using df_stage
+                # This is a more direct approach that doesn't rely on index merging
+                projects_in_stage = []
+                for idx, row in stage_data.iterrows():
+                    # Find matching projects in this stage
+                    project_matches = df_stage[df_stage.index == idx]
+                    if not project_matches.empty:
+                        for _, project in project_matches.iterrows():
+                            projects_in_stage.append({
+                                'Duration (days)': row['Duration (days)'],
+                                'Project name': project['Project name'],
+                                'Project last update': project['Project last update']
+                            })
+                
+                # Convert to DataFrame
+                merged_data = pd.DataFrame(projects_in_stage) if projects_in_stage else pd.DataFrame(
+                    columns=['Duration (days)', 'Project name', 'Project last update']
+                )
+                
+                for idx, row in merged_data.iterrows():
+                    project_name = row['Project name']
+                    duration = row['Duration (days)']
+                    risk_level = "Critical" if duration > 90 else "High" if duration > 60 else "Moderate" if duration > 30 else "Low"
+                    last_update = row['Project last update'] if pd.notnull(row['Project last update']) else pd.Timestamp.now()
+                    now = pd.Timestamp.now()
+                    days_inactive = (now - pd.to_datetime(last_update)).days if pd.notnull(last_update) else 0
+                    
+                    project_details_list.append({
+                        'Project Name': project_name,
+                        'Project Type': current_project_type,
+                        'Current Stage': stage,
+                        'Days in Stage': duration,
+                        'Days Since Last Update': days_inactive,
+                        'Last Updated': last_update.strftime('%Y-%m-%d') if pd.notnull(last_update) else 'Unknown',
+                        'Risk Level': risk_level,
+                        'Status': 'Needs Immediate Action' if risk_level in ['Critical', 'High'] else 'Monitor' if risk_level == 'Moderate' else 'On Track'
+                    })
+
+            return pd.DataFrame(risk_summary), pd.DataFrame(project_details_list)
 
         # Create and format Excel report
-        risk_report = create_risk_report()
+        summary_df, details_df = create_risk_report()
         buffer = io.BytesIO()
+        
         with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-            # Write main sheet
-            risk_report.to_excel(writer, sheet_name='Risk Analysis', index=False)
-            
-            # Get workbook and worksheet objects
+            # Get workbook and create formats
             workbook = writer.book
-            worksheet = writer.sheets['Risk Analysis']
             
             # Define formats
             header_format = workbook.add_format({
@@ -1675,30 +1974,159 @@ with tab2:
                 'bg_color': '#1a237e',
                 'font_color': 'white',
                 'border': 1,
-                'align': 'center'
+                'align': 'center',
+                'valign': 'vcenter',
+                'text_wrap': True
             })
             
-            # Apply formats
-            for col_num, value in enumerate(risk_report.columns.values):
-                worksheet.write(0, col_num, value, header_format)
+            wrap_format = workbook.add_format({
+                'text_wrap': True,
+                'valign': 'top',
+                'border': 1
+            })
             
-            # Set column widths
-            worksheet.set_column('A:A', 20)  # Stage
-            worksheet.set_column('B:B', 15)  # Duration
-            worksheet.set_column('C:C', 12)  # Risk Level
-            worksheet.set_column('D:D', 12)  # Count
-            
-            # Add conditional formatting for risk levels
+            # Risk level formats
             risk_colors = {
-                'Critical': '#ffcdd2',
-                'High': '#fff9c4',
-                'Moderate': '#c8e6c9',
-                'Low': '#e8f5e9'
+                'Critical': workbook.add_format({
+                    'bg_color': '#ffcdd2', 
+                    'bold': True, 
+                    'border': 1,
+                    'align': 'center'
+                }),
+                'High': workbook.add_format({
+                    'bg_color': '#fff9c4', 
+                    'bold': True, 
+                    'border': 1,
+                    'align': 'center'
+                }),
+                'Moderate': workbook.add_format({
+                    'bg_color': '#c8e6c9', 
+                    'border': 1,
+                    'align': 'center'
+                }),
+                'Low': workbook.add_format({
+                    'bg_color': '#e8f5e9', 
+                    'border': 1,
+                    'align': 'center'
+                })
             }
             
-            for risk_level, color in risk_colors.items():
-                format = workbook.add_format({'bg_color': color})
-                worksheet.conditional_format(1, 2, len(risk_report), 2, {
+            # === SUMMARY SHEET ===
+            summary_df.to_excel(writer, sheet_name='Summary', index=False)
+            summary_sheet = writer.sheets['Summary']
+            
+            # Format Summary sheet
+            for col_num, value in enumerate(summary_df.columns.values):
+                summary_sheet.write(0, col_num, value, header_format)
+            
+            # Set column widths for Summary
+            summary_sheet.set_column('A:A', 15)  # Project Type
+            summary_sheet.set_column('B:B', 25)  # Stage
+            summary_sheet.set_column('C:C', 20)  # Average Duration
+            summary_sheet.set_column('D:D', 15)  # Risk Level
+            summary_sheet.set_column('E:E', 15)  # Count
+            summary_sheet.set_column('F:F', 15)  # High Risk Projects
+            
+            # Apply risk level formatting to Summary
+            for risk_level, format_props in risk_colors.items():
+                summary_sheet.conditional_format(1, 3, len(summary_df), 3, {
+                    'type': 'text',
+                    'criteria': 'containing',
+                    'value': risk_level,
+                    'format': format_props
+                })
+            
+            # === DETAILS SHEET ===
+            details_df.to_excel(writer, sheet_name='Project Details', index=False)
+            details_sheet = writer.sheets['Project Details']
+            
+            # Format Details sheet
+            for col_num, value in enumerate(details_df.columns.values):
+                details_sheet.write(0, col_num, value, header_format)
+            
+            # Set column widths for Details
+            details_sheet.set_column('A:A', 35)  # Project Name
+            details_sheet.set_column('B:B', 15)  # Project Type
+            details_sheet.set_column('C:C', 25)  # Current Stage
+            details_sheet.set_column('D:D', 15)  # Days in Stage
+            details_sheet.set_column('E:E', 20)  # Days Since Last Update
+            details_sheet.set_column('F:F', 15)  # Last Updated
+            details_sheet.set_column('G:G', 15)  # Risk Level
+            details_sheet.set_column('H:H', 20)  # Status
+            
+            # Apply risk level formatting to Details
+            for risk_level, format_props in risk_colors.items():
+                details_sheet.conditional_format(1, 6, len(details_df), 6, {
+                    'type': 'text',
+                    'criteria': 'containing',
+                    'value': risk_level,
+                    'format': format_props
+                })
+            
+            # Add conditional formatting for Days Since Last Update
+            details_sheet.conditional_format(1, 4, len(details_df), 4, {
+                'type': 'cell',
+                'criteria': '>',
+                'value': 90,
+                'format': workbook.add_format({'bg_color': '#ffcdd2', 'bold': True})  # Red
+            })
+            details_sheet.conditional_format(1, 4, len(details_df), 4, {
+                'type': 'cell',
+                'criteria': 'between',
+                'minimum': 61,
+                'maximum': 90,
+                'format': workbook.add_format({'bg_color': '#fff9c4'})  # Yellow
+            })
+            
+            # Add borders to all cells
+            border_format = workbook.add_format({'border': 1})
+            for sheet in [summary_sheet, details_sheet]:
+                sheet.conditional_format(1, 0, sheet.dim_rowmax, sheet.dim_colmax, {
+                    'type': 'no_blanks',
+                    'format': border_format
+                })
+            
+            # Freeze panes and add filters
+            summary_sheet.freeze_panes(1, 0)
+            details_sheet.freeze_panes(1, 0)
+            summary_sheet.autofilter(0, 0, len(summary_df), len(summary_df.columns) - 1)
+            details_sheet.autofilter(0, 0, len(details_df), len(details_df.columns) - 1)
+            
+            # Center text in both sheets except project names
+            center_format = workbook.add_format({'align': 'center'})
+            for sheet in [summary_sheet, details_sheet]:
+                # Get data from the DataFrame
+                df = summary_df if sheet.name == 'Summary' else details_df
+                for row in range(len(df)):
+                    for col in range(len(df.columns)):
+                        value = df.iloc[row, col]
+                        # Skip project name column and project type column in details
+                        if (col != 0 and col != 1) or sheet.name == 'Summary':  
+                            # Handle NaN/INF values
+                            if isinstance(value, (int, float)):
+                                if pd.isna(value) or np.isinf(value):
+                                    value = 'N/A'
+                            sheet.write(row + 1, col, value, center_format)
+            
+            # Apply risk level formatting to both sheets
+            risk_format_props = {
+                'Critical': {'bg_color': '#ffcdd2', 'bold': True, 'border': 1, 'align': 'center'},
+                'High': {'bg_color': '#fff9c4', 'bold': True, 'border': 1, 'align': 'center'},
+                'Moderate': {'bg_color': '#c8e6c9', 'border': 1, 'align': 'center'},
+                'Low': {'bg_color': '#e8f5e9', 'border': 1, 'align': 'center'}
+            }
+            
+            for risk_level, props in risk_format_props.items():
+                format = workbook.add_format(props)
+                # For Summary sheet
+                summary_sheet.conditional_format(1, 3, len(summary_df), 3, {
+                    'type': 'text',
+                    'criteria': 'containing',
+                    'value': risk_level,
+                    'format': format
+                })
+                # For Details sheet
+                details_sheet.conditional_format(1, 6, len(details_df), 6, {
                     'type': 'text',
                     'criteria': 'containing',
                     'value': risk_level,
@@ -1707,174 +2135,725 @@ with tab2:
             
         # Create download button
         st.download_button(
-            label="💾 Download Risk Analysis Report",
+            label="💾 Download Detailed Risk Analysis Report",
             data=buffer.getvalue(),
             file_name=f"Stage_Duration_Analysis_{pd.Timestamp.now().strftime('%Y%m%d')}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            help="Download a detailed Excel report with stage duration analysis"
+            help="Download a detailed Excel report with stage duration analysis and project details"
         )
-
 # ────────────────────── DATA QUALITY TAB ──────────────────────
 with tab3:
-    st.markdown("### 🧹 Data Quality Analysis")
-    st.markdown("Comprehensive analysis of data completeness, consistency, and quality issues.")
+    # Header with executive-focused styling and business context
+    st.markdown("""
+    <div style='background-color: #f8fafc; padding: 20px; border-radius: 10px; margin-bottom: 20px; 
+         border-left: 5px solid #3b82f6; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);'>
+        <h2 style='color: #1e3a8a; margin-top: 0;'> Portfolio Data Quality Dashboard</h2>
+        <p style='font-size: 16px; color: #475569;'>
+            <b>Business Impact:</b> High-quality project data directly impacts decision accuracy, resource allocation efficiency, 
+            and portfolio performance monitoring. This dashboard enables data-driven governance and risk mitigation.
+        </p>
+        <div style='display: flex; margin-top: 10px;'>
+            <div style='background-color: #e0f2fe; border-radius: 4px; padding: 5px 10px; margin-right: 10px;'>
+                <span style='font-weight: 500; color: #0369a1;'>Updated Weekly</span>
+            </div>
+            <div style='background-color: #f0fdf4; border-radius: 4px; padding: 5px 10px; margin-right: 10px;'>
+                <span style='font-weight: 500; color: #166534;'>Portfolio Oversight</span>
+            </div>
+            <div style='background-color: #fef3c7; border-radius: 4px; padding: 5px 10px;'>
+                <span style='font-weight: 500; color: #92400e;'>Executive Summary</span>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
     
-    # Data Quality Overview
-    col1, col2, col3 = st.columns(3)
     
-    with col1:
-        # Overall completeness
-        total_cells = len(df) * len(df.columns)
-        non_null_cells = df.count().sum()
-        completeness = (non_null_cells / total_cells) * 100
+    # Load the original complete dataframe for quality analysis
+    original_df = load_data()
+    
+    # Calculate core metrics with business context using the complete dataset
+    total_cells = len(original_df) * len(original_df.columns)
+    non_null_cells = original_df.count().sum()
+    completeness = (non_null_cells / total_cells) * 100
+    
+    # Use the original dataframe for all calculations to get accurate quality metrics
+    df = original_df.copy()  # Use the original dataframe for calculations
+    
+    # Create KPI row with improved visuals and business context
+    kpi1, kpi2, kpi3 = st.columns([1, 1, 1])
+
+    # Intelligent column mapping with fallback strategies
+    column_mapping = {}
+    # Get all columns from the original DataFrame
+    all_columns = original_df.columns.tolist()
+    
+    # Categorize columns based on their content and data types from the original dataset
+    column_categories = {
+        'identification': [],
+        'dates': [],
+        'numeric': [],
+        'categorical': [],
+        'text': []
+    }
+    
+    for col in all_columns:
+        # Identify date columns
+        if 'date' in col.lower() or 'time' in col.lower() or pd.api.types.is_datetime64_any_dtype(original_df[col]):
+            column_categories['dates'].append(col)
+        # Identify numeric columns
+        elif pd.api.types.is_numeric_dtype(original_df[col]):
+            column_categories['numeric'].append(col)
+        # Identify potential ID/key columns
+        elif any(term in col.lower() for term in ['id', 'code', 'key', 'num']):
+            column_categories['identification'].append(col)
+        # Identify text columns with long content
+        elif pd.api.types.is_string_dtype(original_df[col]) and original_df[col].str.len().mean() > 50:
+            column_categories['text'].append(col)
+        # Everything else is considered categorical
+        else:
+            column_categories['categorical'].append(col)
+    
+    # Use all columns for analysis
+    critical_columns = all_columns
+    expected_columns = critical_columns.copy()  # For backward compatibility
+    
+    # Multi-strategy column detection to handle various naming conventions
+    for expected_col in critical_columns:
+        # Strategy 1: Exact match (case-sensitive)
+        if expected_col in df.columns:
+            column_mapping[expected_col] = expected_col
+            continue
+            
+        # Strategy 2: Case-insensitive match
+        matches = [col for col in df.columns if col.lower() == expected_col.lower()]
+        if matches:
+            column_mapping[expected_col] = matches[0]
+            continue
+            
+        # Strategy 3: Word-based matching (handles spacing/formatting differences)
+        expected_words = set(expected_col.lower().split())
+        best_match = None
+        best_score = 0
         
-        st.metric(
-            "Overall Completeness",
-            f"{completeness:.1f}%",
-            help="Percentage of non-null values across all columns"
-        )
+        for col in df.columns:
+            col_words = set(col.lower().split())
+            common_words = expected_words.intersection(col_words)
+            
+            # Calculate match score based on word overlap
+            if common_words:
+                score = len(common_words) / max(len(expected_words), len(col_words))
+                if score > 0.5 and score > best_score:  # Threshold for acceptable match
+                    best_score = score
+                    best_match = col
+        
+        if best_match:
+            column_mapping[expected_col] = best_match
+            
+    # Special handling for critical project identifiers
+    project_name_col = column_mapping.get('Project name')
+    current_step_col = column_mapping.get('Current step name')  # Define current_step_col for consistency calculation
+    if not project_name_col:
+        # Look for columns with both "project" and "name" or columns with "ID" that might serve as identifiers
+        project_cols = [col for col in df.columns if 
+                      ('project' in col.lower() and 'name' in col.lower()) or 
+                      ('project' in col.lower() and 'id' in col.lower())]
+        if project_cols:
+            project_name_col = project_cols[0]
+            column_mapping['Project name'] = project_name_col
     
-    with col2:
-        # Data freshness
-        if 'Project last update' in df.columns:
-            latest_update = df['Project last update'].max()
-            days_since = (pd.Timestamp.now() - latest_update).days
-            st.metric(
-                "Data Freshness",
-                f"{days_since} days",
-                help="Days since the most recent project update"
-            )
+    # Find date columns for freshness calculation
+    date_col = column_mapping.get('Project last update')
+    project_update_col = date_col  # Define project_update_col variable for freshness calculation
+    if not date_col:
+        # Look for columns with date-related keywords
+        date_cols = [col for col in df.columns if any(kw in col.lower() for kw in ['date', 'updated', 'last', 'modified'])]
+        if date_cols:
+            project_update_col = date_cols[0]  # Assign first matching date columndate_col = date_cols[0]
+            column_mapping['Project last update'] = date_col
     
-    with col3:
-        # Duplicate projects
-        duplicates = df['Project name'].duplicated().sum()
-        st.metric(
-            "Duplicate Projects",
-            duplicates,
-            help="Number of projects with duplicate names"
-        )
+    # Define helper functions for business impact context
+    def missing_count_text(score):
+        if score >= 95:
+            return "Excellent - Very few missing values"
+        elif score >= 85:
+            return "Good - Some non-critical gaps"
+        elif score >= 75:
+            return "Fair - Notable data gaps"
+        else:
+            return "Poor - Significant missing data"
+            
+    def completeness_impact(score):
+        if score >= 95:
+            return "High confidence in portfolio analysis"
+        elif score >= 85:
+            return "Minor impact on decision quality"
+        elif score >= 75:
+            return "May affect resource allocation decisions"
+        else:
+            return "High risk of incorrect portfolio analysis"
+            
+    def freshness_impact(days):
+        if days <= 7:
+            return "Real-time portfolio visibility"
+        elif days <= 30:
+            return "Acceptable for monthly reporting"
+        elif days <= 60:
+            return "May miss recent project changes"
+        else:
+            return "Strategic decisions based on outdated data"
+            
+    def duplicates_impact(count):
+        if count == 0:
+            return "Accurate project count and allocation"
+        elif count < 3:
+            return "Minor risk of double-counting"
+        else:
+            return "Significant risk of resource misallocation"
     
-    st.markdown("---")
+    # Calculate comprehensive data quality score based on multiple dimensions
     
-    # Column-by-Column Analysis
-    st.markdown("#### Column Quality Analysis")
+    scores = {
+        'completeness': 0,  # Missing data
+        'validity': 0,      # Data type conformance and valid values
+        'freshness': 0,     # Timeliness of updates
+        'consistency': 0,   # Format standardization
+        'accuracy': 0       # Business rule compliance
+    }
     
+    # Calculate scores for each dimension
+    for col in critical_columns:
+        if col in df.columns:
+            # Completeness check
+            non_null_pct = (df[col].count() / len(df)) * 100
+            scores['completeness'] += non_null_pct
+            
+            # Validity check
+            if pd.api.types.is_numeric_dtype(df[col]):
+                valid_pct = (df[col].apply(lambda x: isinstance(x, (int, float)) and not pd.isna(x)).sum() / len(df)) * 100
+                scores['validity'] += valid_pct
+            elif 'date' in col.lower():
+                valid_pct = (pd.to_datetime(df[col], errors='coerce').notna().sum() / len(df)) * 100
+                scores['validity'] += valid_pct
+                
+            # Consistency check (format standardization)
+            unique_values_pct = (df[col].nunique() / len(df)) * 100
+            scores['consistency'] += max(0, 100 - unique_values_pct)  # Lower unique % is better for categorical fields
+    
+    # Normalize scores
+    for key in scores:
+        scores[key] = scores[key] / len(critical_columns)
+    
+    # Freshness score based on latest update
+    if project_update_col:
+        latest_update = pd.to_datetime(df[project_update_col].max())
+        now = pd.Timestamp.now()
+        days_since = (now - latest_update).days
+        scores['freshness'] = max(0, 100 - (days_since * 1.5))
+    
+    # Weights for different quality dimensions
+    weights = {
+        'completeness': 0.3,
+        'validity': 0.25,
+        'freshness': 0.2,
+        'consistency': 0.15,
+        'accuracy': 0.1
+    }
+    
+    # Calculate weighted overall score from dimension scores
+    overall_quality_score = sum(scores[key] * weights[key] for key in weights)
+    
+    # Calculate consistency score based on current step values
+    if current_step_col and current_step_col in df.columns:
+        # Get value counts for the current step column
+        step_counts = df[current_step_col].value_counts()
+        # Count values that appear only once (potential inconsistencies)
+        outlier_values = sum(1 for count in step_counts if count == 1)
+        consistency_score = 100 - min(100, (outlier_values / len(df)) * 100)
+    else:
+        # Default consistency score if no step column is available
+        consistency_score = 50  # Neutral score when we can't calculate
+        
+    # Calculate final weighted score considering completeness, freshness, and consistency
+    completeness_score = scores['completeness']
+    freshness_score = scores['freshness']
+    
+    overall_quality_score = (
+        (completeness_score * 0.5) + 
+        (freshness_score * 0.3) + 
+        (consistency_score * 0.2)
+    )
+    
+    # Score to grade conversion for executive clarity
+    grade = "A+" if overall_quality_score >= 95 else \
+            "A" if overall_quality_score >= 90 else \
+            "B+" if overall_quality_score >= 85 else \
+            "B" if overall_quality_score >= 80 else \
+            "C+" if overall_quality_score >= 75 else \
+            "C" if overall_quality_score >= 70 else \
+            "D" if overall_quality_score >= 60 else "F"
+    
+    # Color coding for visual impact
+    score_color = "#15803d" if overall_quality_score >= 90 else \
+                 "#0284c7" if overall_quality_score >= 80 else \
+                 "#ea580c" if overall_quality_score >= 70 else \
+                 "#b91c1c"
+    
+    with kpi1:
+        completeness_color = "#15803d" if completeness_score >= 95 else \
+                            "#0284c7" if completeness_score >= 85 else \
+                            "#ea580c" if completeness_score >= 75 else "#b91c1c"
+        
+        st.markdown(f"""
+        <div style='background-color: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 4px rgba(0,0,0,0.1);
+             height: 100%; border: 1px solid #e2e8f0;'>
+            <div style='font-size: 14px; color: #64748b; margin-bottom: 5px;'>Data Completeness</div>
+            <div style='font-size: 28px; font-weight: bold; color: {completeness_color};'>{completeness_score:.1f}%</div>
+            <div style='margin-top: 10px; font-size: 13px; color: #64748b;'>
+                <span style='display: inline-block; width: 10px; height: 10px; border-radius: 50%; background-color: {completeness_color}; margin-right: 5px;'></span>
+                {missing_count_text(completeness_score)}
+            </div>
+            <div style='margin-top: 10px; font-size: 12px; color: #64748b;'>
+                <b>Business Impact:</b> {completeness_impact(completeness_score)}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with kpi2:
+        freshness_color = "#15803d" if freshness_score >= 95 else \
+                         "#0284c7" if freshness_score >= 85 else \
+                         "#ea580c" if freshness_score >= 75 else "#b91c1c"
+                         
+        if project_update_col:
+            latest_update = pd.to_datetime(df[project_update_col].max())
+            now = pd.Timestamp.now()
+            days_since = (now - latest_update).days
+            
+            st.markdown(f"""
+            <div style='background-color: white; padding: 20px; border-radius: 8px; box-shadow: 0px 4px 4px rgba(0,0,0,0.1);
+                 height: 100%; border: 1px solid #e2e8f0;'>
+                <div style='font-size: 14px; color: #64748b; margin-bottom: 5px;'>Data Freshness</div>
+                <div style='font-size: 28px; font-weight: bold; color: {freshness_color};'>{days_since} days</div>
+                <div style='margin-top: 10px; font-size: 13px; color: #64748b;'>
+                    <span style='display: inline-block; width: 10px; height: 10px; border-radius: 50%; background-color: {freshness_color}; margin-right: 5px;'></span>
+                    Since last portfolio update
+                </div>
+                <div style='margin-top: 10px; font-size: 12px; color: #64748b;'>
+                    <b>Business Impact:</b> {freshness_impact(days_since)}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown("""
+            <div style='background-color: white; padding: 20px; border-radius: 8px; box-shadow: 0px 4px 4px rgba(0,0,0,0.1);
+                 height: 100%; border: 1px solid #e2e8f0;'>
+                <div style='font-size: 14px; color: #64748b; margin-bottom: 5px;'>Data Freshness</div>
+                <div style='font-size: 28px; font-weight: bold; color: #94a3b8;'>N/A</div>
+                <div style='margin-top: 10px; font-size: 13px; color: #64748b;'>
+                    <span style='display: inline-block; width: 10px; height: 10px; border-radius: 50%; background-color: #94a3b8; margin-right: 5px;'></span>
+                    Update date column not found
+                </div>
+                <div style='margin-top: 10px; font-size: 12px; color: #64748b;'>
+                    <b>Action Required:</b> Add date tracking to improve portfolio oversight
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    
+    with kpi3:
+        if project_name_col:
+            unique_projects = df[project_name_col].nunique()
+            duplicates = df[project_name_col].duplicated().sum()
+            duplication_rate = (duplicates / len(df)) * 100 if len(df) > 0 else 0
+            
+            uniqueness_color = "#15803d" if duplication_rate == 0 else \
+                              "#0284c7" if duplication_rate < 2 else \
+                              "#ea580c" if duplication_rate < 5 else "#b91c1c"
+            
+            st.markdown(f"""
+            <div style='background-color: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 4px rgba(0,0,0,0.1);
+                 height: 100%; border: 1px solid #e2e8f0;'>
+                <div style='font-size: 14px; color: #64748b; margin-bottom: 5px;'>Project Uniqueness</div>
+                <div style='font-size: 28px; font-weight: bold; color: {uniqueness_color};'>{unique_projects}</div>
+                <div style='margin-top: 10px; font-size: 13px; color: #64748b;'>
+                    <span style='display: inline-block; width: 10px; height: 10px; border-radius: 50%; background-color: {uniqueness_color}; margin-right: 5px;'></span>
+                    Unique projects ({duplicates} duplicates)
+                </div>
+                <div style='margin-top: 10px; font-size: 12px; color: #64748b;'>
+                    <b>Business Impact:</b> {duplicates_impact(duplicates)}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown("""
+            <div style='background-color: white; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                 height: 100%; border: 1px solid #e2e8f0;'>
+                <div style='font-size: 14px; color: #64748b; margin-bottom: 5px;'>Project Uniqueness</div>
+                <div style='font-size: 28px; font-weight: bold; color: #94a3b8;'>N/A</div>
+                <div style='margin-top: 10px; font-size: 13px; color: #64748b;'>
+                    <span style='display: inline-block; width: 10px; height: 10px; border-radius: 50%; background-color: #94a3b8; margin-right: 5px;'></span>
+                    Project ID column not found
+                </div>
+                <div style='margin-top: 10px; font-size: 12px; color: #64748b;'>
+                    <b>Action Required:</b> Implement project identifiers for proper tracking
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            
+    st.markdown("----")
+    
+    # Enhanced Column Quality Analysis with business context
+    st.markdown("""
+    <div style='margin-bottom: 20px;'>
+        <h3 style='font-weight: 600; margin-bottom: 8px;'> Column Quality Analysis</h3>
+        <p style='color: #475569; font-size: 15px;'>
+            Detailed assessment of critical fields that drive portfolio analysis and executive reporting.
+            Fields with quality issues directly impact the reliability of portfolio metrics.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Load the original complete dataframe for quality analysis
+    original_df = load_data()
+    
+    # Calculate more sophisticated column quality metrics for all columns in the original DataFrame
     quality_data = []
-    for col in df.columns:
-        if col in ['Project name', 'Team size', 'Project last update', 'Current step name', 'Thématique', 'Type de situation']:
-            missing_count = df[col].isnull().sum()
-            missing_pct = (missing_count / len(df)) * 100
-            unique_values = df[col].nunique()
+    
+    # Function to get column description based on common naming patterns
+    def get_column_description(col_name):
+        col_lower = col_name.lower()
+        
+        # Dictionary of common column patterns and their descriptions
+        descriptions = {
+            'id': 'Unique identifier for the record',
+            'date': 'Date/time information',
+            'name': 'Name or title field',
+            'status': 'Current state or status',
+            'type': 'Classification or category',
+            'description': 'Detailed text description',
+            'priority': 'Priority or importance level',
+            'size': 'Size or magnitude measure',
+            'count': 'Numeric count or quantity',
+            'department': 'Organizational unit',
+            'cost': 'Financial or cost information',
+            'duration': 'Time duration or period',
+            'location': 'Physical or virtual location',
+            'owner': 'Responsible person or team',
+            'target': 'Goal or target value',
+            'actual': 'Actual or realized value',
+            'comment': 'Additional notes or comments',
+            'email': 'Email address',
+            'phone': 'Phone number',
+            'address': 'Physical address',
+            'category': 'Classification category',
+            'score': 'Numeric score or rating',
+            'percentage': 'Percentage value',
+            'flag': 'Boolean indicator',
+            'version': 'Version number or identifier'
+        }
+        
+        # Check for exact matches first
+        for key, desc in descriptions.items():
+            if key == col_lower:
+                return desc
+                
+        # Then check for partial matches
+        for key, desc in descriptions.items():
+            if key in col_lower:
+                return desc
+                
+        # Default description if no match found
+        return 'Field containing project-related information'
+    
+    # Function to detect outliers with business-appropriate thresholds
+    def detect_outliers(series):
+        if pd.api.types.is_numeric_dtype(series):
+            clean_series = series.dropna()
+            if len(clean_series) == 0:
+                return []
             
-            # Determine quality status
-            if missing_pct == 0:
-                status = "🟢 Excellent"
-            elif missing_pct < 5:
-                status = "🟡 Good"
-            elif missing_pct < 15:
-                status = "🟠 Fair"
+        q1 = clean_series.quantile(0.25)
+        q3 = clean_series.quantile(0.75)
+        iqr = q3 - q1
+        
+        lower_bound = q1 - (1.5 * iqr)
+        upper_bound = q3 + (1.5 * iqr)
+        
+        return clean_series[(clean_series < lower_bound) | (clean_series > upper_bound)].index.tolist()
+    
+    for col in original_df.columns:
+        # Get column statistics
+        missing_count = original_df[col].isnull().sum()
+        total_count = len(original_df)
+        completeness = ((total_count - missing_count) / total_count) * 100
+        
+        # Initialize variables
+        data_type = "Unknown"
+        invalid_count = 0
+        invalid_percentage = 0
+        color = "#94A3B8"
+        
+        # Detect data type and validate accordingly
+        if pd.api.types.is_numeric_dtype(original_df[col]):
+            # Check for numeric validity
+            invalid_count = original_df[col].apply(lambda x: not (isinstance(x, (int, float)) or pd.isna(x))).sum()
+            outliers = detect_outliers(original_df[col])
+            invalid_count += len(outliers)
+            data_type = "Numeric"
+            
+        elif pd.api.types.is_datetime64_any_dtype(original_df[col]) or 'date' in col.lower():
+            # Check for date validity
+            data_type = "Date"
+            datetime_col = pd.to_datetime(original_df[col], errors='coerce')
+            invalid_count = datetime_col.isna().sum() - missing_count
+            
+            # Check for future dates if it's not a target/plan date
+            if not any(term in col.lower() for term in ['target', 'plan', 'due']):
+                now = pd.Timestamp.now()
+                future_dates = original_df[datetime_col > now].shape[0]
+                invalid_count += future_dates
+                
+        else:
+            # For text/categorical, check for standardization
+            value_counts = original_df[col].value_counts()
+            unique_ratio = len(value_counts) / (total_count - missing_count) if total_count > missing_count else 0
+            
+            if unique_ratio > 0.8:  # If more than 80% values are unique, likely free text
+                data_type = "Text"
+                # Check for extremely short or long values
+                if isinstance(original_df[col].dtype, pd.StringDtype):
+                    lengths = original_df[col].str.len()
+                    avg_len = lengths.mean()
+                    invalid_count = original_df[col].apply(lambda x: len(str(x)) < 0.2 * avg_len or len(str(x)) > 5 * avg_len).sum()
             else:
-                status = "🔴 Poor"
-            
-            quality_data.append({
-                'Column': col,
-                'Missing Count': missing_count,
-                'Missing %': f"{missing_pct:.1f}%",
-                'Unique Values': unique_values,
-                'Quality Status': status
-            })
+                data_type = "Categorical"
+                # Check for minor variations (case, spacing)
+                cleaned_values = original_df[col].str.strip().str.lower() if isinstance(original_df[col].dtype, pd.StringDtype) else original_df[col]
+                invalid_count = len(value_counts) - len(cleaned_values.value_counts())
+        
+        # Calculate quality metrics
+        invalid_percentage = (invalid_count / total_count) * 100 if total_count > 0 else 0
+        
+        # Determine quality status
+        if completeness >= 95 and invalid_percentage <= 5:
+            quality_status = "🟢 Excellent"
+            color = "#15803d"
+        elif completeness >= 85 and invalid_percentage <= 10:
+            quality_status = "🟡 Good"
+            color = "#0284c7"
+        elif completeness >= 75 and invalid_percentage <= 15:
+            quality_status = "🟠 Fair"
+            color = "#ea580c"
+        else:
+            quality_status = "🔴 Poor"
+            color = "#b91c1c"
+        
+        # Determine business criticality based on content and usage
+        criticality = "High" if any(term in col.lower() for term in 
+                                  ['id', 'name', 'date', 'status', 'priority', 'type', 'department']) else \
+                     "Medium" if any(term in col.lower() for term in 
+                                   ['description', 'note', 'comment', 'size', 'count']) else "Low"
+        
+        quality_data.append({
+            'Field Name': col,
+            'System Field': col,
+            'Data Type': data_type,
+            'Missing Count': missing_count,
+            'Completeness %': f"{completeness:.1f}",
+            'Invalid %': f"{invalid_percentage:.1f}",
+            'Quality Status': quality_status,
+            'Business Criticality': criticality,
+            'Color': color
+        })
+    
     
     quality_df = pd.DataFrame(quality_data)
-    st.dataframe(quality_df, use_container_width=True)
     
-    # Data Distribution Analysis
-    st.markdown("#### Data Distribution Issues")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        # Team size distribution issues
-        if 'Team size' in df.columns:
-            team_size_clean = pd.to_numeric(df['Team size'], errors='coerce')
-            outliers = team_size_clean[(team_size_clean > 20) | (team_size_clean < 1)]
+    # Function to detect outliers with business-appropriate thresholds
+    def detect_outliers(series):
+        clean_series = series.dropna()
+        if len(clean_series) == 0:
+            return []
             
-            fig = px.histogram(
-                team_size_clean.dropna(),
-                title="Team Size Distribution",
-                nbins=20,
-                color_discrete_sequence=[COLORS['verdigris']]
-            )
-            fig.update_layout(
-                xaxis_title="Team Size",
-                yaxis_title="Count",
-                height=300
-            )
-            st.plotly_chart(fig, use_container_width=True)
+        q1 = clean_series.quantile(0.25)
+        q3 = clean_series.quantile(0.75)
+        iqr = q3 - q1
+        
+        lower_bound = q1 - (1.5 * iqr)
+        upper_bound = q3 + (1.5 * iqr)
+        
+        return clean_series[(clean_series < lower_bound) | (clean_series > upper_bound)].index.tolist()
+        
+    # Create a more executive-friendly visualization
+    col_details, col_viz = st.columns([3, 2])
+    
+    with col_details:
+        # Display the dataframe with enhanced styling for executives
+        st.dataframe(
+            quality_df[['Field Name', 'System Field', 'Missing Count', 'Completeness %', 'Invalid %', 'Quality Status', 'Business Criticality']],
+            use_container_width=True,
+            height=320,
+            column_config={
+                "Field Name": st.column_config.TextColumn("Business Field", help="Standard field name used in business reporting"),
+                "System Field": st.column_config.TextColumn("System Field", help="Actual field name in the data source"),
+                "Missing Count": st.column_config.NumberColumn("Missing Values", help="Number of records with missing values"),
+                "Completeness %": st.column_config.ProgressColumn("Completeness", help="Percentage of records with valid values", format="%s", min_value=0, max_value=100),
+                "Invalid %": st.column_config.ProgressColumn("Invalid Data", help="Percentage of records with invalid or inconsistent values", format="%s", min_value=0, max_value=100),
+                "Quality Status": st.column_config.TextColumn("Quality Rating", help="Overall quality assessment of the field"),
+                "Business Criticality": st.column_config.SelectboxColumn("Business Impact", help="Importance of this field for business decisions", options=["High", "Medium", "Low"])
+            },
+            hide_index=True
+        )
+        
+        # Add business context for critical fields
+        st.markdown("""
+        <div style='margin-top: 10px; font-size: 13px; color: #64748b; background-color: #f8fafc; padding: 10px; border-radius: 5px;'>
+            <b>📝 Field Importance:</b> Fields with <span style='color: #ef4444; font-weight: 500;'>High</span> business criticality 
+            directly impact portfolio analysis and executive reporting. Quality issues in these fields should be addressed as a priority.
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col_viz:
+        # Create a more impactful completion percentage visual with business context
+        # Sort by completeness for better visualization
+        plot_df = quality_df.copy()
+        plot_df['Completeness'] = plot_df['Completeness %'].str.rstrip('%').astype(float)
+        plot_df = plot_df.sort_values('Completeness', ascending=False)
+        
+        # Create a horizontal bar chart with business context
+        fig = go.Figure()
+        
+        for idx, row in plot_df.iterrows():
+            completeness = float(row['Completeness %'].replace('%', ''))
+            criticality = row['Business Criticality']
             
-            if len(outliers) > 0:
-                st.warning(f"Found {len(outliers)} team size outliers (>20 or <1)")
-    
-    with col2:
-        # Project age distribution
-        if 'Project last update' in df.columns:
-            df_with_dates = df.dropna(subset=['Project last update'])
-            if not df_with_dates.empty:
-                df_with_dates['Days Since Update'] = (pd.Timestamp.now() - df_with_dates['Project last update']).dt.days
-                
-                fig = px.histogram(
-                    df_with_dates['Days Since Update'],
-                    title="Project Age Distribution",
-                    nbins=20,
-                    color_discrete_sequence=[COLORS['bondi_blue']]
+            # Adjust bar appearance based on business criticality
+            marker_line_width = 2 if criticality == "High" else 1
+            marker_line_color = "#000000" if criticality == "High" else "#ffffff"
+            opacity = 1.0 if criticality == "High" else 0.8
+            
+            fig.add_trace(go.Bar(
+                y=[row['Field Name']],
+                x=[completeness],
+                orientation='h',
+                name=row['Field Name'],
+                marker=dict(
+                    color=row['Color'],
+                    line=dict(color=marker_line_color, width=marker_line_width),
+                    opacity=opacity
+                ),
+                hovertemplate=(
+                    f"<b>{row['Field Name']}</b><br>" +
+                    f"Completeness: {row['Completeness %']}<br>" +
+                    f"Missing: {row['Missing Count']} records<br>" +
+                    f"Invalid: {row['Invalid %']}<br>" +
+                    f"Status: {row['Quality Status']}<br>" +
+                    f"Criticality: {criticality}<extra></extra>"
+                ),
+                text=row['Completeness %'],
+                textposition='auto'
+            ))
+        
+        fig.update_layout(
+            title={
+                'text': "Data Field Quality Assessment",
+                'y': 0.95,
+                'x': 0.5,
+                'xanchor': 'center',
+                'yanchor': 'top',
+                'font': {'size': 16, 'color': '#1e3a8a', 'family': 'Arial'}
+            },
+            xaxis=dict(
+                title="Completeness %",
+                range=[0, 100],
+                ticksuffix="%",
+                showgrid=True,
+                gridcolor='rgba(0,0,0,0.1)',
+                zeroline=True,
+                zerolinecolor='rgba(0,0,0,0.1)',
+            ),
+            yaxis=dict(
+                title="",
+                autorange="reversed",
+                tickfont={'size': 12}
+            ),
+            plot_bgcolor='white',
+            margin=dict(l=0, r=0, t=40, b=0),
+            height=320,
+            showlegend=False,
+            barmode='group',
+            bargap=0.15,
+            annotations=[
+                dict(
+                    x=25,
+                    y=-0.15,
+                    xref="x",
+                    yref="paper",
+                    text="Poor Quality",
+                    showarrow=False,
+                    font=dict(size=10, color="#b91c1c"),
+                    align="center",
+                ),
+                dict(
+                    x=75,
+                    y=-0.15,
+                    xref="x",
+                    yref="paper",
+                    text="Good Quality",
+                    showarrow=False,
+                    font=dict(size=10, color="#15803d"),
+                    align="center",
                 )
-                fig.update_layout(
-                    xaxis_title="Days Since Last Update",
-                    yaxis_title="Count",
-                    height=300
-                )
-                st.plotly_chart(fig, use_container_width=True)
-                
-                stale_projects = (df_with_dates['Days Since Update'] > 90).sum()
-                if stale_projects > 0:
-                    st.warning(f"Found {stale_projects} projects not updated in 90+ days")
+            ]
+        )
+        
+        # Add visual indicators for quality thresholds
+        fig.add_shape(
+            type="rect",
+            x0=0, y0=0,
+            x1=70, y1=1,
+            yref="paper",
+            fillcolor="rgba(239, 68, 68, 0.07)",
+            layer="below",
+            line_width=0,
+        )
+        
+        fig.add_shape(
+            type="rect",
+            x0=70, y0=0,
+            x1=90, y1=1,
+            yref="paper",
+            fillcolor="rgba(234, 179, 8, 0.07)",
+            layer="below",
+            line_width=0,
+        )
+        
+        fig.add_shape(
+            type="rect",
+            x0=90, y0=0,
+            x1=100, y1=1,
+            yref="paper",
+            fillcolor="rgba(21, 128, 61, 0.07)",
+            layer="below",
+            line_width=0,
+        )
+        
+        st.plotly_chart(fig, use_container_width=True, key="data_field_quality_chart")
+
+    st.markdown("----")
     
-    # Data Cleaning Recommendations
-    st.markdown("#### 🛠️ Data Cleaning Recommendations")
+    # Export quality report with actionable insights
+    st.markdown("### Quality Report Export")
     
-    recommendations = []
+    # Create tabs for different export options
+    export_tab1, export_tab2, export_tab3 = st.tabs(["📊 Quality Report", "🔄 Cleaned Dataset", "📘 Data Dictionary"])
     
-    # Check for missing values
-    missing_data = df.isnull().sum()
-    for col, missing_count in missing_data.items():
-        if missing_count > 0 and col in ['Project name', 'Team size', 'Current step name']:
-            pct = (missing_count / len(df)) * 100
-            recommendations.append(f"**{col}**: {missing_count} missing values ({pct:.1f}%) - Consider data collection improvement")
-    
-    # Check for inconsistent formatting
-    if 'Current step name' in df.columns:
-        step_variations = df['Current step name'].value_counts()
-        if len(step_variations) > 20:  # Many unique steps might indicate inconsistency
-            recommendations.append("**Current step name**: High number of unique values - Review for naming consistency")
-    
-    # Check for data freshness
-    if 'Project last update' in df.columns:
-        old_data = (pd.Timestamp.now() - df['Project last update']).dt.days.max()
-        if old_data > 180:
-            recommendations.append(f"**Data freshness**: Oldest data is {old_data} days old - Consider data refresh schedule")
-    
-    if recommendations:
-        for rec in recommendations:
-            st.write(f"• {rec}")
-    else:
-        st.success("✅ No major data quality issues detected!")
-    
-    # Export cleaned data option
-    st.markdown("#### 📥 Export & Format Options")
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        if st.button("📊 Download Quality Report"):
+    with export_tab1:
+        st.markdown("""
+        The quality report provides a comprehensive assessment of your project data quality.
+        It includes all metrics, findings, and recommendations for improving data reliability.
+        """)
+        
+        if st.button("Generate Quality Report", key="generate_quality_report_btn_tab1"):
             quality_report = {
                 'timestamp': pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S'),
                 'data_source': st.session_state.get('file_info', {}).get('source', 'Unknown'),
@@ -1888,73 +2867,222 @@ with tab3:
             import json
             report_json = json.dumps(quality_report, indent=2)
             
-            st.download_button(
-                "💾 Download Quality Report (JSON)",
-                data=report_json,
-                file_name=f"data_quality_report_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.json",
-                mime="application/json"
-            )
-    
-    with col2:
-        if st.button("📋 Download Cleaned Dataset (Excel)"):
-            # Apply the same cleaning that was done during load
-            cleaned_df, _ = validate_and_clean_data(df.copy())
+            col1, col2 = st.columns(2)
+            with col1:
+                st.download_button(
+                    "💾 Download as JSON",
+                    data=report_json,
+                    file_name=f"data_quality_report_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.json",
+                    mime="application/json",
+                    key="download_json_report_tab1"
+                )
             
+            with col2:
+                # Create a PDF-friendly format (simulated)
+                st.download_button(
+                    "📄 Download as PDF",
+                    data=report_json,  # Would be replaced with actual PDF in production
+                    file_name=f"data_quality_report_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                    mime="application/pdf",
+                    key="download_pdf_report_tab1"
+                )
+    
+    with export_tab2:
+        st.markdown("### 🔄 Export Complete Dataset")
+        st.markdown("Download the complete dataset with all columns and rows.")
+        
+        # Load the original complete dataframe again to ensure we have all data
+        original_df = load_data()
+        
+        # Show preview of the data with counts of rows and columns
+        st.markdown(f"**Preview of export data ({len(original_df)} rows × {len(original_df.columns)} columns)**")
+        st.dataframe(original_df.head(), use_container_width=True)
+        
+        # Information about what's being exported
+        st.info(f"""
+        📋 **Export Information**
+        - All {len(original_df)} rows will be included
+        - All {len(original_df.columns)} columns will be included
+        - No filtering is applied to the data
+        - Choose Excel format for best data type preservation
+        """)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Create Excel file in memory with the complete dataframe
             buffer = io.BytesIO()
+            
             with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-                cleaned_df.to_excel(writer, index=False, sheet_name="Cleaned_Data")
+                # Export the complete dataframe with all columns and rows
+                original_df.to_excel(writer, index=False, sheet_name="Complete Dataset")
+            
             buffer.seek(0)
             
             st.download_button(
-                "💾 Download as Excel",
+                label=" Download Complete Dataset (Excel)",
                 data=buffer,
-                file_name=f"cleaned_dashboard_data_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                file_name=f"complete_dashboard_data_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                key="download_excel_complete"
             )
-            
-    with col3:
-        if st.button("📄 Download Cleaned Dataset (CSV)"):
-            # Apply the same cleaning that was done during load
-            cleaned_df, _ = validate_and_clean_data(df.copy())
-            
-            csv_buffer = cleaned_df.to_csv(index=False)
-            
-            st.download_button(
-                "💾 Download as CSV",
-                data=csv_buffer,
-                file_name=f"cleaned_dashboard_data_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                mime="text/csv"
-            )
-    
-    # Data Format Information
-    st.markdown("#### 📁 Current Data Source")
-    if hasattr(st.session_state, 'file_info'):
-        info = st.session_state.file_info
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            st.info(f"""
-            **Current Source:** {info['format']} format  
-            **File:** `{info['source']}`  
-            **Size:** {info['size_mb']} MB  
-            **Dimensions:** {info['rows']:,} rows × {info['columns']} columns
-            """)
         
         with col2:
-            st.success("""
-            **✅ Format Support:**
-            - Excel (.xlsx) - Preferred format
-            - CSV (.csv) - Fallback format
-            - Automatic detection & loading
-            - Cross-format compatibility
-            """)
+            # Create CSV in memory with the complete dataframe
+            csv_buffer = df.to_csv(index=False)
+            
+            st.download_button(
+                label="Download Complete Dataset (CSV)",
+                data=csv_buffer,
+                file_name=f"complete_dashboard_data_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime="text/csv",
+                key="download_csv_complete"
+            )
     
-    # Format conversion recommendations
-    if hasattr(st.session_state, 'file_info') and st.session_state.file_info['format'] == 'CSV':
-        st.warning("""
-        **💡 Recommendation:** Consider using Excel format for better data type preservation and faster loading.
-        You can convert your CSV to Excel using the download options above.
+    with export_tab3:
+        st.markdown("""
+        The data dictionary provides comprehensive documentation of all data fields,
+        including definitions, acceptable values, and business context for executives.
         """)
+        
+        # Load the original complete dataframe for the data dictionary
+        original_df = load_data()
+        
+        # Display a data dictionary with all columns from the original dataset
+        dict_data = []
+        # Use all columns from the original DataFrame
+        for col in original_df.columns:
+            # Get data type and sample values
+            data_type = str(original_df[col].dtype)
+            # Convert sample values to strings to avoid type conversion issues
+            sample_vals = [str(val) for val in original_df[col].dropna().head(3).tolist()]
+            sample_str = ', '.join(sample_vals) if sample_vals else 'No samples available'
+
+            dict_data.append({
+                "Field Name": str(col),
+                "System Field": str(col),  # Use the actual column name as is
+                "Data Type": str(data_type),
+                "Description": str(get_column_description(col)) if 'get_column_description' in globals() else 'Field for project data',
+                "Required": "Yes" if any(term in col.lower() for term in ['id', 'name', 'date', 'status', 'priority', 'type']) else "No",
+                "Example Values": sample_str
+            })
+        
+        # Create DataFrame with explicit string dtypes
+        dict_df = pd.DataFrame(dict_data).astype(str)
+        st.dataframe(dict_df, use_container_width=True,
+            column_config={
+                "Field Name": st.column_config.TextColumn("Field Name", help="Business name of the field"),
+                "System Field": st.column_config.TextColumn("System Field", help="Technical name in the dataset"),
+                "Data Type": st.column_config.TextColumn("Data Type", help="Type of data stored in the field"),
+                "Description": st.column_config.TextColumn("Description", help="Field description and purpose"),
+                "Required": st.column_config.TextColumn("Required", help="Whether the field is mandatory"),
+                "Example Values": st.column_config.TextColumn("Example Values", help="Sample values from the dataset")
+            })
+        
+        # Add download button for the data dictionary
+        if st.button("Download Data Dictionary", key="download_dict_btn_tab3"):
+            dict_buffer = io.BytesIO()
+            with pd.ExcelWriter(dict_buffer, engine='openpyxl') as writer:
+                dict_df.to_excel(writer, index=False, sheet_name="Data_Dictionary")
+            dict_buffer.seek(0)
+            
+            st.download_button(
+                "💾 Download Data Dictionary",
+                data=dict_buffer,
+                file_name=f"project_data_dictionary_{pd.Timestamp.now().strftime('%Y%m%d')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                key="download_dict_file_tab3"
+            )
+
+    # Data Source Information with improved styling
+    st.markdown("### 📁 Data Source Information")
+
+    # Get data source information if not already present
+    if not hasattr(st.session_state, 'file_info') and 'df' in locals():
+        # If dataset is loaded but file_info not set, create it
+        st.session_state.file_info = {
+            'source': 'Loaded dataset',
+            'format': 'DataFrame',
+            'size_mb': round(df.memory_usage(deep=True).sum() / 1024 / 1024, 2),
+            'rows': len(df),
+            'columns': len(df.columns)
+        }
+
+    # Refresh file information from the currently loaded dataset
+    if hasattr(st.session_state, 'file_info'):
+        # Update size and dimensions from current dataset
+        st.session_state.file_info.update({
+            'size_mb': round(df.memory_usage(deep=True).sum() / 1024 / 1024, 2),
+            'rows': len(df),
+            'columns': len(df.columns)
+        })
+    if hasattr(st.session_state, 'file_info'):
+        info = st.session_state.file_info
+
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            st.markdown(f"""
+            <div style='background-color: #E0F2FE; padding: 15px; border-radius: 5px;'>
+                <h4 style='margin:0; color: #0369A1;'>Current Data Source</h4>
+                <p style='margin:5px 0;'><b>Format:</b> {info['format']}</p>
+                <p style='margin:5px 0;'><b>File:</b> <code>{info['source']}</code></p>
+                <p style='margin:5px 0;'><b>Size:</b> {info['size_mb']} MB</p>
+                <p style='margin:5px 0;'><b>Dimensions:</b> {info['rows']:,} rows × {info['columns']} columns</p>
+                <p style='margin:5px 0;'><b>Last Updated:</b> {pd.Timestamp.now().strftime('%Y-%m-%d')}</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with col2:
+            st.markdown("""
+            <div style='background-color: #DCFCE7; padding: 15px; border-radius: 5px;'>
+                <h4 style='margin:0; color: #166534;'>Data Governance</h4>
+                <p style='margin:5px 0;'><b>Owner:</b> TBD</p>
+                <p style='margin:5px 0;'><b>Update Frequency:</b> TBD</p>
+                <p style='margin:5px 0;'><b>Quality Rules:</b> Automated validation</p>
+                <p style='margin:5px 0;'><b>Format Support:</b> Excel (.xlsx), CSV (.csv)</p>
+                <p style='margin:5px 0;'><b>Storage:</b> Centralized data repository</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # Format recommendation
+        if info['format'] == 'CSV':
+            st.markdown("""
+            <div style='background-color: #FEF3C7; padding: 15px; border-radius: 5px; margin-top: 20px;'>
+                <h4 style='margin:0; color: #92400E;'>💡 Format Recommendation</h4>
+                <p style='margin:5px 0;'>
+                    For better data type preservation, consider converting your CSV to Excel using the download options in the Cleaned Dataset tab.
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+
+    else:
+        st.info("No data source loaded yet. Please upload a dataset to view this information.")
+
     
     st.markdown("---")
-    st.markdown("*Dashboard automatically detects and loads the best available format (Excel preferred, CSV fallback)*")
+    
+    # Footer with information
+    st.markdown("""
+    <div style='text-align: center; color: #64748B; padding: 10px; font-size: 12px;'>
+        Dashboard automatically detects and loads the best available format (Excel preferred, CSV fallback).<br>
+        Data quality rules and definitions follow industry standards for project portfolio management.
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Helper functions for the data dictionary
+    def get_column_description(column_name):
+        """Return business-friendly descriptions for each column"""
+        descriptions = {
+            'Project name': 'The unique identifier name for each project initiative',
+            'Team size': 'Number of team members actively working on the project',
+            'Project last update': 'Date when project information was last modified',
+            'Current step name': 'Current stage in the project lifecycle workflow',
+            'Thématique': 'Primary business domain or theme of the project',
+            'Type de situation': 'Classification of project by business impact type'
+        }
+        return descriptions.get(column_name, 'No description available')
+
+    def is_required_column(column_name):
+        """Determine if a column is considered required for data quality"""
+        required_columns = ['Project name', 'Current step name', 'Type de situation']
+        return 'Yes' if column_name in required_columns else 'No'
