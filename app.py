@@ -11,6 +11,10 @@ import time
 import io
 import importlib.util
 import json
+from prophet import Prophet
+from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
 
 
 # Initialize session state for performance tracking
@@ -55,86 +59,212 @@ st.set_page_config(
 # Data validation and cleaning functions
 def validate_and_clean_data(data):
     """
-    Comprehensive data validation and cleaning function
+    Enhanced data validation and cleaning function with improved error handling,
+    data type validation, and comprehensive quality scoring.
     """
     cleaning_report = {
         'original_rows': len(data),
         'issues_found': [],
         'fixes_applied': [],
+        'warnings': [],
         'final_rows': 0,
-        'data_quality_score': 0
+        'data_quality_score': 0,
+        'column_scores': {}
     }
     
-    # 1. Handle missing values in critical columns
-    critical_columns = ["Project name", "Team size", "Project last update", "Current step name"]
+    # Define expected data types and validation rules
+    column_rules = {
+        "Project name": {
+            'type': str,
+            'required': True,
+            'min_length': 3,
+            'max_length': 200,
+            'weight': 1.0  # Importance weight for quality score
+        },
+        "Team size": {
+            'type': float,
+            'required': True,
+            'min_value': 1,
+            'max_value': 50,
+            'weight': 0.8
+        },
+        "Project last update": {
+            'type': 'datetime',
+            'required': True,
+            'max_value': pd.Timestamp.now(),
+            'min_value': pd.Timestamp.now() - pd.DateOffset(years=5),
+            'weight': 0.9
+        },
+        "Current step name": {
+            'type': str,
+            'required': True,
+            'allowed_values': None,  # Will be populated from data
+            'weight': 0.8
+        },
+        "Thématique": {
+            'type': str,
+            'required': True,
+            'weight': 0.7
+        },
+        "Type de situation": {
+            'type': str,
+            'required': True,
+            'weight': 0.7
+        }
+    }
     
-    for col in critical_columns:
-        if col in data.columns:
-            missing_count = data[col].isnull().sum()
-            if missing_count > 0:
-                cleaning_report['issues_found'].append(f"{col}: {missing_count} missing values")
-                
-                if col == "Team size":
-                    # Fill with median team size
-                    median_size = data[col].median()
-                    data[col] = data[col].fillna(median_size)
-                    cleaning_report['fixes_applied'].append(f"{col}: Filled {missing_count} missing values with median ({median_size})")
-                
-                elif col == "Current step name":
-                    # Fill with "Unknown Step"
-                    data[col] = data[col].fillna("Unknown Step")
-                    cleaning_report['fixes_applied'].append(f"{col}: Filled {missing_count} missing values with 'Unknown Step'")
+    # 1. Validate column presence and data types
+    missing_columns = [col for col in column_rules.keys() if col not in data.columns]
+    if missing_columns:
+        for col in missing_columns:
+            cleaning_report['issues_found'].append(f"Critical column missing: {col}")
+        raise ValueError(f"Missing critical columns: {', '.join(missing_columns)}")
     
-    # 2. Clean and validate Team size
-    if "Team size" in data.columns:
-        # Convert to numeric, handling errors
-        original_team_size = data["Team size"].copy()
-        data["Team size"] = pd.to_numeric(data["Team size"], errors='coerce')
+    # Create a deep copy to track changes
+    data = data.copy()
+    
+    # 2. Enhanced validation and cleaning for each column
+    for col, rules in column_rules.items():
+        col_report = {
+            'missing_count': 0,
+            'invalid_count': 0,
+            'fixed_count': 0,
+            'quality_score': 0
+        }
         
-        # Check for outliers (team size > 50 or < 1)
-        outliers = data[(data["Team size"] > 50) | (data["Team size"] < 1)]["Team size"].count()
-        if outliers > 0:
-            cleaning_report['issues_found'].append(f"Team size: {outliers} outlier values (>50 or <1)")
-            # Cap extreme values
-            data.loc[data["Team size"] > 50, "Team size"] = 50
-            data.loc[data["Team size"] < 1, "Team size"] = 1
-            cleaning_report['fixes_applied'].append(f"Team size: Capped {outliers} outlier values")
-    
-    # 3. Standardize text columns
-    text_columns = ["Current step name", "Thématique", "Type de situation"]
-    for col in text_columns:
-        if col in data.columns:
-            # Remove extra whitespace and standardize
-            original_values = data[col].copy()
-            data[col] = data[col].astype(str).str.strip()
-            data[col] = data[col].replace(['nan', 'None', 'null'], None)
+        # Handle missing values
+        missing_mask = data[col].isna()
+        col_report['missing_count'] = missing_mask.sum()
+        
+        if col_report['missing_count'] > 0:
+            cleaning_report['issues_found'].append(
+                f"{col}: {col_report['missing_count']} missing values"
+            )
             
-            # Count how many were cleaned
-            changes = (original_values.astype(str).str.strip() != data[col].astype(str)).sum()
+            # Apply column-specific missing value handling
+            if col == "Team size":
+                median_size = data.loc[~missing_mask, col].median()
+                data.loc[missing_mask, col] = median_size
+                cleaning_report['fixes_applied'].append(
+                    f"{col}: Filled {col_report['missing_count']} missing values with median ({median_size:.1f})"
+                )
+            elif col == "Current step name":
+                data.loc[missing_mask, col] = "Unknown Step"
+                cleaning_report['fixes_applied'].append(
+                    f"{col}: Filled {col_report['missing_count']} missing values with 'Unknown Step'"
+                )
+            elif rules['required']:
+                cleaning_report['warnings'].append(
+                    f"Required column {col} contains missing values that couldn't be automatically fixed"
+                )
+        
+        # Type-specific validation and cleaning
+        if rules['type'] == float:
+            # Convert to numeric and handle errors
+            numeric_data = pd.to_numeric(data[col], errors='coerce')
+            invalid_mask = numeric_data.isna() & ~missing_mask
+            col_report['invalid_count'] += invalid_mask.sum()
+            
+            if col_report['invalid_count'] > 0:
+                cleaning_report['issues_found'].append(
+                    f"{col}: {col_report['invalid_count']} non-numeric values found"
+                )
+            
+            # Apply value range validation
+            if 'min_value' in rules:
+                below_min = (numeric_data < rules['min_value']) & ~numeric_data.isna()
+                if below_min.any():
+                    data.loc[below_min, col] = rules['min_value']
+                    cleaning_report['fixes_applied'].append(
+                        f"{col}: Set {below_min.sum()} values below minimum to {rules['min_value']}"
+                    )
+            
+            if 'max_value' in rules:
+                above_max = (numeric_data > rules['max_value']) & ~numeric_data.isna()
+                if above_max.any():
+                    data.loc[above_max, col] = rules['max_value']
+                    cleaning_report['fixes_applied'].append(
+                        f"{col}: Set {above_max.sum()} values above maximum to {rules['max_value']}"
+                    )
+            
+            data[col] = numeric_data
+            
+        elif rules['type'] == 'datetime':
+            # Convert to datetime and handle errors
+            datetime_data = pd.to_datetime(data[col], errors='coerce')
+            invalid_mask = datetime_data.isna() & ~missing_mask
+            col_report['invalid_count'] += invalid_mask.sum()
+            
+            if col_report['invalid_count'] > 0:
+                cleaning_report['issues_found'].append(
+                    f"{col}: {col_report['invalid_count']} invalid date values found"
+                )
+            
+            # Handle future dates
+            future_dates = datetime_data > rules['max_value']
+            if future_dates.any():
+                data.loc[future_dates, col] = rules['max_value']
+                cleaning_report['fixes_applied'].append(
+                    f"{col}: Set {future_dates.sum()} future dates to current timestamp"
+                )
+            
+            # Handle dates too far in the past
+            old_dates = datetime_data < rules['min_value']
+            if old_dates.any():
+                cleaning_report['warnings'].append(
+                    f"{col}: {old_dates.sum()} dates are more than 5 years old"
+                )
+            
+            data[col] = datetime_data
+            
+        elif rules['type'] == str:
+            # String validation and cleaning
+            if 'min_length' in rules:
+                too_short = data[col].str.len() < rules['min_length']
+                if too_short.any():
+                    cleaning_report['warnings'].append(
+                        f"{col}: {too_short.sum()} values shorter than minimum length"
+                    )
+            
+            if 'max_length' in rules:
+                too_long = data[col].str.len() > rules['max_length']
+                if too_long.any():
+                    data.loc[too_long, col] = data.loc[too_long, col].str[:rules['max_length']]
+                    cleaning_report['fixes_applied'].append(
+                        f"{col}: Truncated {too_long.sum()} values to maximum length"
+                    )
+            
+            # Standardize string values
+            data[col] = data[col].astype(str).str.strip()
+            standardized = data[col].replace(['nan', 'None', 'null', 'NaN'], None)
+            changes = (standardized != data[col]).sum()
             if changes > 0:
-                cleaning_report['fixes_applied'].append(f"{col}: Cleaned {changes} text entries")
+                cleaning_report['fixes_applied'].append(f"{col}: Standardized {changes} text values")
+            data[col] = standardized
+        
+        # Calculate column quality score
+        valid_count = len(data) - col_report['missing_count'] - col_report['invalid_count']
+        col_report['quality_score'] = (valid_count / len(data)) * 100
+        cleaning_report['column_scores'][col] = col_report
     
-    # 4. Validate and clean date columns
-    date_columns = ["Project last update"]
-    for col in date_columns:
-        if col in data.columns:
-            # Check for future dates
-            future_dates = data[data[col] > pd.Timestamp.now()][col].count()
-            if future_dates > 0:
-                cleaning_report['issues_found'].append(f"{col}: {future_dates} future dates found")
-                # Set future dates to today
-                data.loc[data[col] > pd.Timestamp.now(), col] = pd.Timestamp.now()
-                cleaning_report['fixes_applied'].append(f"{col}: Fixed {future_dates} future dates")
+    # 3. Calculate overall data quality score with weighted dimensions
+    total_weight = sum(rules['weight'] for rules in column_rules.values())
+    weighted_scores = []
     
-    # 5. Calculate data quality score
+    for col, rules in column_rules.items():
+        col_score = cleaning_report['column_scores'][col]['quality_score']
+        weighted_scores.append(col_score * rules['weight'])
+    
+    cleaning_report['data_quality_score'] = round(sum(weighted_scores) / total_weight, 1)
     cleaning_report['final_rows'] = len(data)
     
-    # Quality factors
-    completeness = 1 - (data.isnull().sum().sum() / (len(data) * len(data.columns)))
-    consistency = 1 - (len(cleaning_report['issues_found']) / max(len(data), 1)) * 0.1
-    validity = 1 - max(0, (cleaning_report['original_rows'] - cleaning_report['final_rows']) / cleaning_report['original_rows'])
+    # Add severity levels to issues and warnings
+    for i, issue in enumerate(cleaning_report['issues_found']):
+        severity = 'HIGH' if 'Critical' in issue or 'missing' in issue else 'MEDIUM'
+        cleaning_report['issues_found'][i] = f"[{severity}] {issue}"
     
-    cleaning_report['data_quality_score'] = round((completeness * 0.4 + consistency * 0.3 + validity * 0.3) * 100, 1)
+    for i, warning in enumerate(cleaning_report['warnings']):
+        cleaning_report['warnings'][i] = f"[LOW] {warning}"
     
     return data, cleaning_report
 
@@ -576,10 +706,11 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Create the tabs with enhanced styling and icons
-tab1, tab2, tab3 = st.tabs([
+tab1, tab2, tab3, tab4 = st.tabs([
     "📊 **Overview Dashboard**", 
     "📈 **Stages Analysis**", 
-    "🧹 **Data Quality**"
+    "🧹 **Data Quality**",
+    "🤖 **ML Insights**"
 ])
 
 # Close the specific div container
@@ -1024,29 +1155,25 @@ with tab1:
             st.plotly_chart(fig, use_container_width=True)
         st.markdown("---")
 
+    # ────────────────────── TEAM SIZE DISTRIBUTION ────────────────────── #
     if "Team Size Distribution" in selected_charts:
-        st.markdown('''
-            <div class="chart-title">
-                Team Size Distribution
-            </div>
-        ''', unsafe_allow_html=True)
-        st.markdown('<div class="chart-subtitle">Resource Allocation Analysis</div>', unsafe_allow_html=True)
-        
-        # Team size distribution with improved visualization and business context
-        team_size_clean = pd.to_numeric(filtered_df["Team size"], errors='coerce')
+        # Team Size Distribution
+        st.markdown('<div class="chart-title">Team Size Distribution</div>', unsafe_allow_html=True)
+        st.markdown('<div class="chart-subtitle">Distribution of team sizes across projects</div>', unsafe_allow_html=True)
+
+        # Prepare data
+        team_size_clean = pd.to_numeric(filtered_df["Team size"], errors="coerce").dropna()
         if not team_size_clean.empty:
-            # Calculate key statistics for business insights
             avg_size = team_size_clean.mean()
             median_size = team_size_clean.median()
-            resource_allocation = team_size_clean.sum()  # Total team members allocated                # Identify potential outliers and unusual distributions
-            # Identify potential outliers
+            resource_allocation = team_size_clean.sum()
             outliers = team_size_clean[(team_size_clean > 20) | (team_size_clean < 1)]
             has_outliers = len(outliers) > 0
-            
-            # Create multiple insights in a single row
+
+            # --- KPI Cards ---
             insight_col1, insight_col2, insight_col3 = st.columns(3)
-            
-            # Add modern card styling
+
+            # Card styling (only needs to be declared once in your app)
             st.markdown("""
                 <style>
                 .metric-card {
@@ -1075,42 +1202,19 @@ with tab1:
                     opacity: 0;
                     transition: opacity 0.3s ease;
                 }
-                .metric-card:hover::before {
-                    opacity: 1;
-                }
-                .metric-label {
-                    font-size: 14px;
-                    font-weight: 500;
-                    color: #64748b;
-                    letter-spacing: 0.01em;
-                    margin-bottom: 8px;
-                }
+                .metric-card:hover::before { opacity: 1; }
+                .metric-label { font-size: 14px; font-weight: 500; color: #64748b; margin-bottom: 8px; }
                 .metric-value {
-                    font-size: 32px;
-                    font-weight: 700;
-                    color: #1e293b;
-                    line-height: 1.2;
-                    margin-bottom: 4px;
+                    font-size: 32px; font-weight: 700;
                     background: linear-gradient(90deg, #1e293b 0%, #334155 100%);
                     -webkit-background-clip: text;
                     -webkit-text-fill-color: transparent;
+                    margin-bottom: 4px;
                 }
-                .metric-subtitle {
-                    font-size: 13px;
-                    color: #94a3b8;
-                    font-weight: 400;
-                }
-                @media (max-width: 768px) {
-                    .metric-card {
-                        padding: 16px;
-                    }
-                    .metric-value {
-                        font-size: 28px;
-                    }
-                }
+                .metric-subtitle { font-size: 13px; color: #94a3b8; }
                 </style>
             """, unsafe_allow_html=True)
-            
+
             with insight_col1:
                 st.markdown(f"""
                 <div class="metric-card">
@@ -1119,7 +1223,7 @@ with tab1:
                     <div class="metric-subtitle">members per project</div>
                 </div>
                 """, unsafe_allow_html=True)
-            
+
             with insight_col2:
                 st.markdown(f"""
                 <div class="metric-card">
@@ -1128,132 +1232,129 @@ with tab1:
                     <div class="metric-subtitle">team members across portfolio</div>
                 </div>
                 """, unsafe_allow_html=True)
-            
+
             with insight_col3:
-                color = "#15803d" if not has_outliers else "#b91c1c"
                 status = "Normal Distribution" if not has_outliers else f"{len(outliers)} Potential Outliers"
-                bg_gradient = "90deg, #15803d 0%, #16a34a 100%" if not has_outliers else "90deg, #b91c1c 0%, #dc2626 100%"
-                
+                color_grad = "90deg, #15803d 0%, #16a34a 100%" if not has_outliers else "90deg, #b91c1c 0%, #dc2626 100%"
+
                 st.markdown(f"""
                 <style>
                 .metric-card-status .metric-value {{
-                    background: linear-gradient({bg_gradient});
+                    background: linear-gradient({color_grad});
                     -webkit-background-clip: text;
                     -webkit-text-fill-color: transparent;
                 }}
                 .metric-card-status::before {{
-                    background: linear-gradient({bg_gradient});
+                    background: linear-gradient({color_grad});
                 }}
                 </style>
                 <div class="metric-card metric-card-status">
                     <div class="metric-label">Distribution Quality</div>
                     <div class="metric-value">{status}</div>
-                    <div class="metric-subtitle">{len(team_size_clean.dropna())} projects analyzed</div>
+                    <div class="metric-subtitle">{len(team_size_clean)} projects analyzed</div>
                 </div>
                 """, unsafe_allow_html=True)
-                
-            # Create an enhanced histogram with better executive insights
-            fig = px.histogram(
-                team_size_clean.dropna(),
-                nbins=15,
-                color_discrete_sequence=['#3b82f6'],
-                opacity=0.7,
-                marginal="box",  # Add a box plot to show distribution
-                histnorm='percent',  # Show as percentage for better interpretation
-                labels={'value': 'Team Size', 'count': 'Percentage of Projects'},
+
+            # --- Enhanced Bar Chart ---
+            team_size_counts = team_size_clean.astype(int).value_counts().sort_index()
+
+            fig = go.Figure(data=[go.Bar(
+                x=team_size_counts.index,
+                y=team_size_counts.values,
+                marker=dict(
+                    color=COLORS['bondi_blue'],
+                    line=dict(color='white', width=1)
+                ),
+                text=team_size_counts.values,  # Add value labels
+                textposition='outside',
+                textfont=dict(color=COLORS['indigo_dye'], size=12),
+                hovertemplate='<b>Team Size: %{x}</b><br>Count: %{y} projects<extra></extra>'
+            )])
+
+            # Add mean and median lines
+            fig.add_vline(
+                x=avg_size, 
+                line_dash="dash", 
+                line_color="#f97316",
+                annotation=dict(
+                    text=f"Mean: {avg_size:.1f}",
+                    font=dict(color="#f97316", size=12),
+                    bgcolor="rgba(255,255,255,0.8)",
+                    borderpad=4
+                )
             )
             
-            # Add mean and median lines with clear business context
-            fig.add_vline(x=avg_size, line_dash="dash", line_color="#f97316", 
-                         annotation=dict(
-                             text=f"Mean: {avg_size:.1f}",
-                             font=dict(color="#f97316", size=12),
-                             bgcolor="rgba(255,255,255,0.8)",
-                             borderpad=4
-                         ))
-                             
-            fig.add_vline(x=median_size, line_dash="dash", line_color="#0ea5e9", 
-                         annotation=dict(
-                             text=f"Median: {median_size:.0f}",
-                             font=dict(color="#0ea5e9", size=12),
-                             bgcolor="rgba(255,255,255,0.8)",
-                             borderpad=4
-                         ))
-            
-            # Add resource allocation bands with business context
-            team_size_ranges = [
-                (1, 3, "Small Teams", "rgba(34, 197, 94, 0.2)"),
-                (4, 8, "Medium Teams", "rgba(59, 130, 246, 0.2)"),
-                (9, 15, "Large Teams", "rgba(249, 115, 22, 0.2)"),
-                (16, max(team_size_clean.max(), 20), "Very Large Teams", "rgba(239, 68, 68, 0.2)")
-            ]
-            
-            for start, end, label, color in team_size_ranges:
-                fig.add_vrect(
-                    x0=start-0.5, x1=end+0.5,
-                    fillcolor=color,
-                    layer="below", line_width=0,
-                    annotation_text=label,
-                    annotation_position="top",
-                    annotation=dict(
-                        font=dict(size=10, color="#475569"),
-                        bgcolor="rgba(255,255,255,0.7)",
-                        borderpad=2
-                    )
+            fig.add_vline(
+                x=median_size, 
+                line_dash="dash", 
+                line_color="#0ea5e9",
+                annotation=dict(
+                    text=f"Median: {median_size:.0f}",
+                    font=dict(color="#0ea5e9", size=12),
+                    bgcolor="rgba(255,255,255,0.8)",
+                    borderpad=4
                 )
-                
+            )
+
             fig.update_layout(
                 title={
-                    'text': "Team Size Distribution Across Portfolio",
+                    'text': "Project Team Size Distribution",
                     'y': 0.95,
                     'x': 0.5,
                     'xanchor': 'center',
                     'yanchor': 'top',
-                    'font': {'size': 16, 'color': '#1e3a8a', 'family': 'Arial'}
+                    'font': {'size': 16, 'color': COLORS['indigo_dye']}
                 },
                 xaxis_title="Team Size (number of members)",
-                yaxis_title="Percentage of Projects",
-                height=420,
+                yaxis_title="Number of Projects",
+                height=400,
+                margin=dict(l=50, r=30, t=50, b=50),
                 plot_bgcolor='white',
-                bargap=0.2,
-                margin=dict(l=40, r=20, t=80, b=40),
+                paper_bgcolor='white',
+                font=dict(color=COLORS['indigo_dye']),
+                bargap=0.15,
                 xaxis=dict(
-                    tickmode='linear',
-                    tick0=0,
-                    dtick=2,
+                    range=[-0.5, max(team_size_counts.index) + 0.5],  # Ensure bars are centered
+                    dtick=1,
+                    showgrid=True,
+                    gridcolor='rgba(0,0,0,0.1)',
+                    zeroline=True,
+                    zerolinecolor='rgba(0,0,0,0.2)',
+                    zerolinewidth=2,
+                    tickfont=dict(size=11)
                 ),
                 yaxis=dict(
-                    ticksuffix="%",
+                    showgrid=True,
+                    gridcolor='rgba(0,0,0,0.1)',
+                    zeroline=True,
+                    zerolinecolor='rgba(0,0,0,0.2)',
+                    zerolinewidth=2,
+                    rangemode='nonnegative',  # Ensure y-axis starts at 0
+                    tickfont=dict(size=11)
                 ),
-            )
-            
-            st.plotly_chart(fig, use_container_width=True, key="team_size_distribution")            # Add business insights based on the distribution
-            if has_outliers:
-                st.warning(f"⚠️ **Resource Allocation Anomalies**: {len(outliers)} projects have unusual team sizes that may indicate data quality issues or special project requirements. Consider validating these projects individually.", icon="⚠️")
-                
-                # Show the potential outliers in a neat table
-                if st.checkbox("Show Potential Team Size Anomalies"):
-                    outlier_indices = outliers.index.tolist()
-                    outlier_projects = filtered_df.loc[outlier_indices]
-                    
-                    if "Project name" in filtered_df.columns:
-                        outlier_info = outlier_projects[["Project name", "Team size"]].copy()
-                        outlier_info.columns = ["Project", "Team Size"]
-                        
-                        st.dataframe(
-                            outlier_info,
-                            use_container_width=True,
-                            hide_index=True,
-                            column_config={
-                                "Project": st.column_config.TextColumn("Project Name", width="large"),
-                                "Team Size": st.column_config.NumberColumn("Team Size", help="Number of team members assigned to this project")
-                            }
+                shapes=[
+                    # Add vertical line at x=0
+                    dict(
+                        type='line',
+                        x0=0,
+                        y0=0,
+                        x1=0,
+                        y1=1,
+                        yref='paper',
+                        line=dict(
+                            color='rgba(0,0,0,0.2)',
+                            width=2
                         )
-                    else:
-                        st.info("Project name column not found - cannot show detailed outlier information.")
+                    )
+                ]
+            )
+
+            st.plotly_chart(fig, use_container_width=True)
+            st.markdown("---")
+
         else:
-            st.info("📋 Team size information not available in the dataset. Consider adding this field to improve resource allocation analysis.", icon="ℹ️")
-            
+            st.info("📋 Team size information not available in the dataset.")
+
     # ────────────────────── MENTORSHIP DISTRIBUTION ────────────────────── #
     
     st.markdown('---')
@@ -1423,7 +1524,7 @@ with tab2:
     counts_raw = df["Type de situation"].str.lower().value_counts(dropna=False)
     label_map = {
         "Business": "business",
-        "OM": "operating model", 
+        "Operating Model": "operating model", 
         "Ecosystem": "ecosystème"
     }
 
@@ -1454,7 +1555,7 @@ with tab2:
             "Business | Acceleration", "Business | Pre-Impact Committee", "Business | Impact Committee",
             "Business | Impact", "Business | Series B"
         ],
-        "OM": [
+        "Operating Model": [
             "Soumission", "Categorization", "Ideation", "Ideation | Demo Day", "Development",
             "OM | Incubation", "OM | Pre-Hacking Committee", "OM | Hacking Committee",
             "OM | Acceleration", "OM | Pre-Impact Committee", "OM | Impact Committee", "OM | Impact"
@@ -3069,20 +3170,17 @@ with tab3:
     </div>
     """, unsafe_allow_html=True)
 
-    # Helper functions for the data dictionary
-    def get_column_description(column_name):
-        """Return business-friendly descriptions for each column"""
-        descriptions = {
-            'Project name': 'The unique identifier name for each project initiative',
-            'Team size': 'Number of team members actively working on the project',
-            'Project last update': 'Date when project information was last modified',
-            'Current step name': 'Current stage in the project lifecycle workflow',
-            'Thématique': 'Primary business domain or theme of the project',
-            'Type de situation': 'Classification of project by business impact type'
-        }
-        return descriptions.get(column_name, 'No description available')
+# ────────────────────── ML INSIGHTS TAB ────────────────────── #
+with tab4:
+    st.markdown("## 🤖 Machine Learning Insights")
+    st.markdown("""
+        <div style='background-color: #f8fafc; padding: 20px; border-radius: 10px; margin-bottom: 20px; 
+             border-left: 5px solid #3b82f6; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);'>
+            <h3 style='color: #1e3a8a; margin-top: 0;'>Predictive Analytics Dashboard</h3>
+            <p style='color: #475569;'>
+                Leverage machine learning to gain insights into project trends, predict outcomes, 
+                and optimize resource allocation.
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
 
-    def is_required_column(column_name):
-        """Determine if a column is considered required for data quality"""
-        required_columns = ['Project name', 'Current step name', 'Type de situation']
-        return 'Yes' if column_name in required_columns else 'No'

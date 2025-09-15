@@ -3,3 +3,7 @@ pandas
 plotly
 openpyxl  # required for reading .xlsx files
 streamlit-plotly-events
+scikit-learn
+prophet  # for time series forecasting
+numpy
+statsmodels  # for statistical analysis and forecasting
