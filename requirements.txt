@@ -7,3 +7,4 @@ scikit-learn
 prophet  # for time series forecasting
 numpy
 statsmodels  # for statistical analysis and forecasting
+xlsxwriter
